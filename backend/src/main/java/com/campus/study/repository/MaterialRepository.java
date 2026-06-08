@@ -1,0 +1,37 @@
+package com.campus.study.repository;
+
+import com.campus.study.entity.Material;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface MaterialRepository extends JpaRepository<Material, Long> {
+
+    Page<Material> findByStatus(Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndStatus(String title, Integer status, Pageable pageable);
+
+    Page<Material> findByCategoryIdAndStatus(Long categoryId, Integer status, Pageable pageable);
+
+    Page<Material> findByGradeIdAndStatus(Long gradeId, Integer status, Pageable pageable);
+
+    Page<Material> findBySubjectIdAndStatus(Long subjectId, Integer status, Pageable pageable);
+
+    Page<Material> findByCategoryIdAndGradeIdAndSubjectIdAndStatus(
+            Long categoryId, Long gradeId, Long subjectId, Integer status, Pageable pageable);
+
+    Page<Material> findByUserId(Long userId, Pageable pageable);
+
+    List<Material> findTop10ByStatusOrderByViewCountDesc(Integer status);
+
+    @Modifying
+    @Query("UPDATE Material m SET m.viewCount = m.viewCount + 1 WHERE m.id = :id")
+    void incrementViewCount(@Param("id") Long id);
+}

@@ -1,0 +1,53 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: campus-study
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/qd_db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: qd_user
+    password: qd123456
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+    properties:
+      hibernate:
+        format_sql: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis123456
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 100MB
+
+file:
+  upload:
+    path: /app/uploads
+
+logging:
+  level:
+    com.campus.study: debug
+    org.springframework.web: info
+    org.hibernate.SQL: info

@@ -232,7 +232,7 @@ const loadFavorites = async () => {
     appStore.setFavoriteCount(total)
     
     if (favoritePage.value === 1) {
-      const map = {}
+      const map = { ...appStore.favoriteMap }
       favoriteList.value.forEach(item => {
         map[Number(item.id)] = true
       })

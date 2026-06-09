@@ -261,12 +261,15 @@ import { useAppStore } from '@/store'
 const router = useRouter()
 const appStore = useAppStore()
 
+const GRID_DEFAULT_SIZE = 8
+const LIST_DEFAULT_SIZE = 10
+
 const searchKeyword = ref('')
 const selectedCategory = ref(null)
 const selectedGrade = ref(null)
 const selectedSubject = ref(null)
 const currentPage = ref(1)
-const pageSize = ref(8)
+const pageSize = ref(appStore.viewMode === 'grid' ? GRID_DEFAULT_SIZE : LIST_DEFAULT_SIZE)
 const total = ref(0)
 const materialList = ref([])
 const hotList = ref([])
@@ -274,19 +277,22 @@ const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
 
+let requestSeq = 0
+
 const categoryMap = ref({})
 const gradeMap = ref({})
 const subjectMap = ref({})
 
 const setViewMode = (mode) => {
   appStore.setViewMode(mode)
+  pageSize.value = mode === 'grid' ? GRID_DEFAULT_SIZE : LIST_DEFAULT_SIZE
   currentPage.value = 1
   loadMaterials()
 }
 
 const handleResize = () => {
   if (window.innerWidth <= 768 && appStore.viewMode === 'grid' && !localStorage.getItem('material_view_mode')) {
-    appStore.setViewMode('list')
+    setViewMode('list')
   }
 }
 
@@ -321,6 +327,7 @@ const loadSubjects = async () => {
 }
 
 const loadMaterials = async () => {
+  const seq = ++requestSeq
   try {
     const params = {
       page: currentPage.value,
@@ -331,6 +338,9 @@ const loadMaterials = async () => {
       subjectId: selectedSubject.value || undefined
     }
     const res = await getMaterialList(params)
+    if (seq !== requestSeq) {
+      return
+    }
     materialList.value = res.data?.list || []
     total.value = res.data?.total || 0
     
@@ -340,6 +350,9 @@ const loadMaterials = async () => {
       }
     })
   } catch (e) {
+    if (seq !== requestSeq) {
+      return
+    }
     console.error('加载资料列表失败', e)
   }
 }

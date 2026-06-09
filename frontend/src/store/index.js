@@ -49,7 +49,7 @@ export const useAppStore = defineStore('app', {
       try {
         const res = await getMyFavorites({ page: 1, size: 1000 })
         const list = res.data?.list || []
-        const map = {}
+        const map = { ...this.favoriteMap }
         list.forEach(item => {
           map[Number(item.id)] = true
         })

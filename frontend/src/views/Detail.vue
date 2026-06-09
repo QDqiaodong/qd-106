@@ -91,13 +91,14 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document } from '@element-plus/icons-vue'
-import { getMaterialDetail, favoriteMaterial, unfavoriteMaterial, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import { getMaterialDetail, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import { useAppStore } from '@/store'
 
 const route = useRoute()
+const appStore = useAppStore()
 const materialId = computed(() => Number(route.params.id))
 
 const detail = ref({})
-const isFavorited = ref(false)
 const previewUrl = ref('')
 const loading = ref(false)
 const categories = ref([])
@@ -107,6 +108,8 @@ const subjects = ref([])
 const categoryMap = ref({})
 const gradeMap = ref({})
 const subjectMap = ref({})
+
+const isFavorited = computed(() => appStore.isFavorite(materialId.value))
 
 const loadDicts = async () => {
   try {
@@ -132,6 +135,10 @@ const loadDetail = async () => {
     const res = await getMaterialDetail(materialId.value)
     detail.value = res.data || {}
     
+    if (detail.value.favorited !== undefined) {
+      appStore.setFavorite(materialId.value, detail.value.favorited)
+    }
+    
     if (detail.value.fileUrl) {
       previewUrl.value = detail.value.fileUrl
     }
@@ -154,15 +161,8 @@ const formatDate = (dateStr) => {
 
 const handleFavorite = async () => {
   try {
-    if (isFavorited.value) {
-      await unfavoriteMaterial(materialId.value)
-      isFavorited.value = false
-      ElMessage.success('已取消收藏')
-    } else {
-      await favoriteMaterial(materialId.value)
-      isFavorited.value = true
-      ElMessage.success('收藏成功')
-    }
+    const newFavorited = await appStore.toggleFavorite(materialId.value)
+    ElMessage.success(newFavorited ? '收藏成功' : '已取消收藏')
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '操作失败，请重试')
   }

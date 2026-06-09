@@ -133,7 +133,20 @@
                     {{ item.downloadCount || 0 }}
                   </span>
                 </div>
-                <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
+                <div class="card-actions">
+                  <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
+                  <el-button
+                    :type="appStore.isFavorite(item.id) ? 'warning' : 'default'"
+                    size="small"
+                    text
+                    @click="(e) => handleFavorite(e, item.id)"
+                  >
+                    <el-icon>
+                      <StarFilled v-if="appStore.isFavorite(item.id)" />
+                      <Star v-else />
+                    </el-icon>
+                  </el-button>
+                </div>
               </div>
             </el-card>
           </div>
@@ -164,8 +177,15 @@
                   <span class="stat-num">{{ item.viewCount || 0 }}</span>
                   <span class="stat-label">浏览</span>
                 </div>
-                <div class="stat-item">
-                  <el-icon><Star /></el-icon>
+                <div
+                  class="stat-item favorite-stat"
+                  :class="{ 'is-favorited': appStore.isFavorite(item.id) }"
+                  @click="(e) => handleFavorite(e, item.id)"
+                >
+                  <el-icon>
+                    <StarFilled v-if="appStore.isFavorite(item.id)" />
+                    <Star v-else />
+                  </el-icon>
                   <span class="stat-num">{{ item.favoriteCount || 0 }}</span>
                   <span class="stat-label">收藏</span>
                 </div>
@@ -233,7 +253,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Document, View, Download, Histogram, Grid, List, Star } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled } from '@element-plus/icons-vue'
 import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -312,6 +333,12 @@ const loadMaterials = async () => {
     const res = await getMaterialList(params)
     materialList.value = res.data?.list || []
     total.value = res.data?.total || 0
+    
+    materialList.value.forEach(item => {
+      if (item.favorited !== undefined) {
+        appStore.setFavorite(item.id, item.favorited)
+      }
+    })
   } catch (e) {
     console.error('加载资料列表失败', e)
   }
@@ -371,6 +398,15 @@ const handleCurrentChange = (page) => {
 
 const goToDetail = (id) => {
   router.push(`/detail/${id}`)
+}
+
+const handleFavorite = async (e, id) => {
+  e.stopPropagation()
+  try {
+    await appStore.toggleFavorite(id)
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '操作失败，请重试')
+  }
 }
 
 onMounted(() => {
@@ -539,6 +575,12 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .upload-time {
   color: #c0c4cc;
   font-size: 13px;
@@ -641,6 +683,25 @@ onUnmounted(() => {
 .stat-item .el-icon {
   color: #909399;
   font-size: 16px;
+}
+
+.stat-item.favorite-stat {
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.stat-item.favorite-stat:hover {
+  background: #fdf6ec;
+}
+
+.stat-item.favorite-stat.is-favorited .el-icon {
+  color: #e6a23c;
+}
+
+.stat-item.favorite-stat.is-favorited .stat-num {
+  color: #e6a23c;
 }
 
 .stat-num {

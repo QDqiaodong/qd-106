@@ -6,14 +6,15 @@ export function getMaterialList(params) {
   return request({
     url: '/materials',
     method: 'get',
-    params
+    params: { ...params, userId: DEFAULT_USER_ID }
   })
 }
 
 export function getMaterialDetail(id) {
   return request({
     url: `/materials/${id}`,
-    method: 'get'
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
   })
 }
 

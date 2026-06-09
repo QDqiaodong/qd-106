@@ -36,7 +36,15 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { Reading, House, Upload, User } from '@element-plus/icons-vue'
+import { useAppStore } from '@/store'
+
+const appStore = useAppStore()
+
+onMounted(() => {
+  appStore.loadFavorites()
+})
 </script>
 
 <style>

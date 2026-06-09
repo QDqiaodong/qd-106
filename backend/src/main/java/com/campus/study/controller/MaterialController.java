@@ -50,11 +50,20 @@ public class MaterialController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long gradeId,
-            @RequestParam(required = false) Long subjectId) {
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Long userId) {
         Page<Material> materialPage = materialService.getMaterialPage(page, size, keyword, categoryId, gradeId, subjectId);
 
+        List<Material> list = materialPage.getContent();
+        if (userId != null) {
+            for (Material material : list) {
+                boolean favorited = favoriteService.isFavorite(userId, material.getId());
+                material.setFavorited(favorited);
+            }
+        }
+
         Map<String, Object> result = new HashMap<>();
-        result.put("list", materialPage.getContent());
+        result.put("list", list);
         result.put("total", materialPage.getTotalElements());
         result.put("page", page);
         result.put("size", size);
@@ -64,7 +73,7 @@ public class MaterialController {
 
     @GetMapping("/{id}")
     @Transactional
-    public Result<Material> detail(@PathVariable Long id) {
+    public Result<Material> detail(@PathVariable Long id, @RequestParam(required = false) Long userId) {
         Material material = materialService.getMaterialById(id);
         if (material == null) {
             return Result.error("资料不存在");
@@ -74,6 +83,12 @@ public class MaterialController {
         }
         materialService.incrementViewCount(id);
         material.setViewCount(material.getViewCount() + 1);
+
+        if (userId != null) {
+            boolean favorited = favoriteService.isFavorite(userId, id);
+            material.setFavorited(favorited);
+        }
+
         return Result.success(material);
     }
 

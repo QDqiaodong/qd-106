@@ -154,13 +154,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Upload, Star, StarFilled, Document, View, Download, Delete } from '@element-plus/icons-vue'
-import { getMyUploads, getMyFavorites, deleteMaterial, unfavoriteMaterial, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import { getMyUploads, getMyFavorites, deleteMaterial, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import { useAppStore } from '@/store'
 
 const router = useRouter()
+const appStore = useAppStore()
 
 const activeTab = ref('uploads')
 const loading = ref(false)
@@ -168,7 +170,7 @@ const favLoading = ref(false)
 const pageSize = ref(10)
 
 const uploadCount = ref(0)
-const favoriteCount = ref(0)
+const favoriteCount = computed(() => appStore.favoriteCount)
 
 const uploadList = ref([])
 const uploadPage = ref(1)
@@ -176,7 +178,7 @@ const uploadTotal = ref(0)
 
 const favoriteList = ref([])
 const favoritePage = ref(1)
-const favoriteTotal = ref(0)
+const favoriteTotal = computed(() => appStore.favoriteCount)
 
 const categories = ref([])
 const grades = ref([])
@@ -226,13 +228,20 @@ const loadFavorites = async () => {
   try {
     const res = await getMyFavorites({ page: favoritePage.value, size: pageSize.value })
     favoriteList.value = res.data?.list || []
-    favoriteTotal.value = res.data?.total || 0
-    favoriteCount.value = favoriteTotal.value
+    const total = res.data?.total || 0
+    appStore.setFavoriteCount(total)
+    
+    if (favoritePage.value === 1) {
+      const map = {}
+      favoriteList.value.forEach(item => {
+        map[Number(item.id)] = true
+      })
+      appStore.favoriteMap = map
+      appStore.favoritesLoaded = true
+    }
   } catch (e) {
     console.error('加载我的收藏失败', e)
     favoriteList.value = []
-    favoriteTotal.value = 0
-    favoriteCount.value = 0
   } finally {
     favLoading.value = false
   }
@@ -303,9 +312,9 @@ const handleUnfavorite = async (id) => {
       }
     )
     
-    await unfavoriteMaterial(id)
+    await appStore.doUnfavorite(id)
+    favoriteList.value = favoriteList.value.filter(item => item.id !== id)
     ElMessage.success('已取消收藏')
-    loadFavorites()
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error(e.response?.data?.message || '操作失败，请重试')

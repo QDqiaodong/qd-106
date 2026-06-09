@@ -45,6 +45,8 @@ spring:
 file:
   upload:
     path: /app/uploads
+  chunk:
+    path: /app/uploads/chunks
 
 logging:
   level:

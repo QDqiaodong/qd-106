@@ -101,3 +101,52 @@ export function getHotMaterials() {
     method: 'get'
   })
 }
+
+export function initChunkUpload(fileName, fileSize, chunkSize = 5 * 1024 * 1024, fileMd5 = '') {
+  return request({
+    url: '/materials/chunk/init',
+    method: 'post',
+    params: { fileName, fileSize, chunkSize, fileMd5 }
+  })
+}
+
+export function uploadChunk(uploadId, chunkIndex, chunk, onUploadProgress) {
+  const formData = new FormData()
+  formData.append('uploadId', uploadId)
+  formData.append('chunkIndex', chunkIndex)
+  formData.append('chunk', chunk)
+  return request({
+    url: '/materials/chunk/upload',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    timeout: 0,
+    onUploadProgress
+  })
+}
+
+export function getChunkStatus(uploadId) {
+  return request({
+    url: '/materials/chunk/status',
+    method: 'get',
+    params: { uploadId }
+  })
+}
+
+export function mergeChunks(uploadId, data) {
+  return request({
+    url: '/materials/chunk/merge',
+    method: 'post',
+    params: { uploadId, ...data }
+  })
+}
+
+export function cancelChunkUpload(uploadId) {
+  return request({
+    url: '/materials/chunk/cancel',
+    method: 'delete',
+    params: { uploadId }
+  })
+}

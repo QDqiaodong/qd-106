@@ -8,130 +8,175 @@
         </div>
       </template>
 
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="100px"
-        class="upload-form"
-      >
-        <el-form-item label="资料标题" prop="title">
-          <el-input
-            v-model="form.title"
-            placeholder="请输入资料标题"
-            maxlength="100"
-            show-word-limit
-            size="large"
-          />
-        </el-form-item>
-
-        <el-form-item label="资料描述" prop="description">
-          <el-input
-            v-model="form.description"
-            type="textarea"
-            :rows="4"
-            placeholder="请输入资料描述，介绍资料的主要内容和用途"
-            maxlength="500"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item label="分类" prop="categoryId">
-          <el-select
-            v-model="form.categoryId"
-            placeholder="请选择资料分类"
-            size="large"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in categories"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
+      <div v-if="!showProgress" class="upload-form-section">
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-width="100px"
+          class="upload-form"
+        >
+          <el-form-item label="资料标题" prop="title">
+            <el-input
+              v-model="form.title"
+              placeholder="请输入资料标题"
+              maxlength="100"
+              show-word-limit
+              size="large"
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
 
-        <el-form-item label="年级" prop="gradeId">
-          <el-select
-            v-model="form.gradeId"
-            placeholder="请选择适用年级"
-            size="large"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in grades"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
+          <el-form-item label="资料描述" prop="description">
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="4"
+              placeholder="请输入资料描述，介绍资料的主要内容和用途"
+              maxlength="500"
+              show-word-limit
             />
-          </el-select>
-        </el-form-item>
+          </el-form-item>
 
-        <el-form-item label="学科" prop="subjectId">
-          <el-select
-            v-model="form.subjectId"
-            placeholder="请选择所属学科"
-            size="large"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in subjects"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
+          <el-form-item label="分类" prop="categoryId">
+            <el-select
+              v-model="form.categoryId"
+              placeholder="请选择资料分类"
+              size="large"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="item in categories"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
 
-        <el-form-item label="上传文件" prop="file">
-          <el-upload
-            ref="uploadRef"
-            :auto-upload="false"
-            :on-change="handleFileChange"
-            :on-remove="handleFileRemove"
-            :limit="1"
-            :file-list="fileList"
-            accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
-            drag
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将文件拖到此处，或<em>点击上传</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持 PDF、Word、PPT、Excel、TXT 格式，单个文件不超过 50MB
+          <el-form-item label="年级" prop="gradeId">
+            <el-select
+              v-model="form.gradeId"
+              placeholder="请选择适用年级"
+              size="large"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="item in grades"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="学科" prop="subjectId">
+            <el-select
+              v-model="form.subjectId"
+              placeholder="请选择所属学科"
+              size="large"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="item in subjects"
+                :key="item.id"
+                :label="item.name"
+                :value="item.id"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="上传文件" prop="file">
+            <el-upload
+              ref="uploadRef"
+              :auto-upload="false"
+              :on-change="handleFileChange"
+              :on-remove="handleFileRemove"
+              :limit="1"
+              :file-list="fileList"
+              accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt"
+              drag
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将文件拖到此处，或<em>点击上传</em>
               </div>
-            </template>
-          </el-upload>
-        </el-form-item>
+              <template #tip>
+                <div class="el-upload__tip">
+                  支持 PDF、Word、PPT、Excel、TXT 格式，大文件将自动分片上传
+                </div>
+              </template>
+            </el-upload>
+          </el-form-item>
 
-        <el-form-item>
-          <el-button type="primary" size="large" :loading="loading" @click="handleSubmit">
-            <el-icon style="margin-right: 6px"><Check /></el-icon>
-            提交上传
+          <el-form-item>
+            <el-button type="primary" size="large" :loading="submitting" @click="handleSubmit">
+              <el-icon style="margin-right: 6px"><Check /></el-icon>
+              提交上传
+            </el-button>
+            <el-button size="large" @click="handleReset">
+              <el-icon style="margin-right: 6px"><RefreshLeft /></el-icon>
+              重置表单
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+
+      <div v-else class="upload-progress-section">
+        <ChunkUploadProgress
+          :file-name="uploadState.fileName"
+          :file-size="uploadState.fileSize"
+          :uploaded-size="uploadState.uploadedSize"
+          :progress="uploadState.progress"
+          :speed="uploadState.speed"
+          :remaining-time="uploadState.remainingTime"
+          :status="uploadState.status"
+          :total-chunks="uploadState.totalChunks"
+          :completed-count="uploadState.completedCount"
+          :chunks="uploadState.chunks"
+          :failed-chunks="uploadState.failedChunks"
+          :error="uploadState.error"
+          @pause="handlePause"
+          @resume="handleResume"
+          @cancel="handleCancel"
+          @retry-all="handleRetryAll"
+          @retry-chunk="handleRetryChunk"
+        />
+
+        <div class="completion-actions" v-if="uploadState.status === 'completed'">
+          <el-button type="primary" size="large" @click="goToDetail">
+            <el-icon><View /></el-icon>
+            查看资料详情
           </el-button>
-          <el-button size="large" @click="handleReset">
-            <el-icon style="margin-right: 6px"><RefreshLeft /></el-icon>
-            重置表单
+          <el-button size="large" @click="handleResetAll">
+            <el-icon><Plus /></el-icon>
+            继续上传
           </el-button>
-        </el-form-item>
-      </el-form>
+        </div>
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { uploadMaterial, getCategoryList, getGradeList, getSubjectList, DEFAULT_USER_ID } from '@/api/material'
+import {
+  Upload,
+  UploadFilled,
+  Check,
+  RefreshLeft,
+  View,
+  Plus
+} from '@element-plus/icons-vue'
+import { getCategoryList, getGradeList, getSubjectList, DEFAULT_USER_ID } from '@/api/material'
+import { useChunkUpload } from '@/utils/useChunkUpload'
+import ChunkUploadProgress from '@/components/ChunkUploadProgress.vue'
 
 const router = useRouter()
 const formRef = ref(null)
 const uploadRef = ref(null)
-const loading = ref(false)
+const submitting = ref(false)
 const fileList = ref([])
 
 const form = reactive({
@@ -169,6 +214,67 @@ const rules = {
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
+
+const chunkUpload = useChunkUpload()
+
+const uploadState = reactive({
+  fileName: '',
+  fileSize: 0,
+  uploadedSize: 0,
+  progress: 0,
+  speed: 0,
+  remainingTime: 0,
+  status: 'idle',
+  totalChunks: 0,
+  completedCount: 0,
+  chunks: [],
+  failedChunks: [],
+  error: ''
+})
+
+const showProgress = computed(() => {
+  return uploadState.status !== 'idle'
+})
+
+const syncUploadState = () => {
+  uploadState.fileName = chunkUpload.fileName.value
+  uploadState.fileSize = chunkUpload.fileSize.value
+  uploadState.uploadedSize = chunkUpload.uploadedSize.value
+  uploadState.progress = chunkUpload.progress.value
+  uploadState.speed = chunkUpload.speed.value
+  uploadState.remainingTime = chunkUpload.remainingTime.value
+  uploadState.status = chunkUpload.status.value
+  uploadState.totalChunks = chunkUpload.totalChunks.value
+  uploadState.completedCount = chunkUpload.completedCount.value
+  uploadState.chunks = [...chunkUpload.chunks]
+  uploadState.failedChunks = [...chunkUpload.failedChunks.value]
+  uploadState.error = chunkUpload.error.value || ''
+}
+
+let stateWatcher = null
+
+const startWatching = () => {
+  if (stateWatcher) return
+  stateWatcher = setInterval(syncUploadState, 100)
+}
+
+const stopWatching = () => {
+  if (stateWatcher) {
+    clearInterval(stateWatcher)
+    stateWatcher = null
+  }
+}
+
+const getFormData = () => {
+  return {
+    title: form.title,
+    description: form.description,
+    categoryId: form.categoryId,
+    gradeId: form.gradeId,
+    subjectId: form.subjectId,
+    userId: DEFAULT_USER_ID
+  }
+}
 
 const loadCategories = async () => {
   try {
@@ -236,39 +342,93 @@ const handleSubmit = async () => {
     return
   }
 
-  loading.value = true
-  try {
-    const uploadData = {
-      title: form.title,
-      description: form.description,
-      categoryId: form.categoryId,
-      gradeId: form.gradeId,
-      subjectId: form.subjectId,
-      userId: DEFAULT_USER_ID,
-      file: form.file
-    }
+  submitting.value = true
+  startWatching()
 
-    await uploadMaterial(uploadData)
-    ElMessage.success('资料上传成功！')
-    
-    ElMessageBox.confirm(
-      '资料上传成功，是否前往个人中心查看？',
-      '上传成功',
-      {
-        confirmButtonText: '去查看',
-        cancelButtonText: '继续上传',
-        type: 'success'
-      }
-    ).then(() => {
-      router.push('/profile')
-    }).catch(() => {
-      handleReset()
-    })
+  try {
+    const formData = getFormData()
+    const success = await chunkUpload.startUpload(form.file, formData)
+
+    if (success) {
+      ElMessage.success('资料上传成功！即将跳转到详情页...')
+      setTimeout(() => {
+        if (chunkUpload.mergedData.value && chunkUpload.mergedData.value.id) {
+          router.push(`/detail/${chunkUpload.mergedData.value.id}`)
+        }
+      }, 1500)
+    } else if (chunkUpload.status.value === 'error') {
+      ElMessage.error(chunkUpload.error.value || '上传失败')
+    }
   } catch (e) {
     ElMessage.error(e.response?.data?.message || '上传失败，请重试')
   } finally {
-    loading.value = false
+    submitting.value = false
   }
+}
+
+const handlePause = () => {
+  chunkUpload.pauseUpload()
+  syncUploadState()
+  ElMessage.info('已暂停上传')
+}
+
+const handleResume = async () => {
+  const formData = getFormData()
+  try {
+    const success = await chunkUpload.resumeUpload(formData)
+    if (success) {
+      ElMessage.success('上传完成！即将跳转到详情页...')
+      setTimeout(() => {
+        if (chunkUpload.mergedData.value && chunkUpload.mergedData.value.id) {
+          router.push(`/detail/${chunkUpload.mergedData.value.id}`)
+        }
+      }, 1500)
+    }
+  } catch (e) {
+    ElMessage.error('继续上传失败')
+  }
+}
+
+const handleCancel = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要取消上传吗？已上传的分片将被清除。',
+      '取消上传',
+      {
+        confirmButtonText: '确定取消',
+        cancelButtonText: '继续上传',
+        type: 'warning'
+      }
+    )
+    await chunkUpload.cancelUpload()
+    syncUploadState()
+    stopWatching()
+    ElMessage.info('已取消上传')
+  } catch (e) {
+    // 用户取消了确认
+  }
+}
+
+const handleRetryAll = async () => {
+  const formData = getFormData()
+  try {
+    const success = await chunkUpload.retryFailed(formData)
+    if (success) {
+      ElMessage.success('上传完成！即将跳转到详情页...')
+      setTimeout(() => {
+        if (chunkUpload.mergedData.value && chunkUpload.mergedData.value.id) {
+          router.push(`/detail/${chunkUpload.mergedData.value.id}`)
+        }
+      }, 1500)
+    }
+  } catch (e) {
+    ElMessage.error('重试失败')
+  }
+}
+
+const handleRetryChunk = async (index) => {
+  await chunkUpload.retryChunk(index)
+  syncUploadState()
 }
 
 const handleReset = () => {
@@ -276,6 +436,19 @@ const handleReset = () => {
   uploadRef.value?.clearFiles()
   form.file = null
   fileList.value = []
+}
+
+const handleResetAll = () => {
+  chunkUpload.reset()
+  syncUploadState()
+  stopWatching()
+  handleReset()
+}
+
+const goToDetail = () => {
+  if (chunkUpload.mergedData.value && chunkUpload.mergedData.value.id) {
+    router.push(`/detail/${chunkUpload.mergedData.value.id}`)
+  }
 }
 
 onMounted(() => {
@@ -310,6 +483,19 @@ onMounted(() => {
 
 .upload-form {
   padding: 20px 0;
+}
+
+.upload-progress-section {
+  padding: 10px 0;
+}
+
+.completion-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
 }
 
 :deep(.el-upload-dragger) {

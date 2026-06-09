@@ -2,6 +2,7 @@ package com.campus.study.controller;
 
 import com.campus.study.common.Result;
 import com.campus.study.entity.Material;
+import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
 import com.campus.study.service.MaterialService;
 import com.campus.study.util.FileUtil;
@@ -35,6 +36,9 @@ public class MaterialController {
 
     @Resource
     private FileUtil fileUtil;
+
+    @Resource
+    private ChunkUploadService chunkUploadService;
 
     @Value("${file.upload.path:/app/uploads}")
     private String uploadPath;
@@ -201,5 +205,72 @@ public class MaterialController {
             }
             os.flush();
         }
+    }
+
+    @PostMapping("/chunk/init")
+    public Result<Map<String, Object>> initChunkUpload(
+            @RequestParam String fileName,
+            @RequestParam long fileSize,
+            @RequestParam(defaultValue = "5242880") int chunkSize,
+            @RequestParam(required = false) String fileMd5) {
+        try {
+            Map<String, Object> result = chunkUploadService.initUpload(fileName, fileSize, chunkSize, fileMd5);
+            return Result.success("初始化成功", result);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/chunk/upload")
+    public Result<Map<String, Object>> uploadChunk(
+            @RequestParam String uploadId,
+            @RequestParam int chunkIndex,
+            @RequestParam MultipartFile chunk) {
+        try {
+            Map<String, Object> result = chunkUploadService.uploadChunk(uploadId, chunkIndex, chunk);
+            return Result.success("分片上传成功", result);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        } catch (IOException e) {
+            return Result.error("分片上传失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/chunk/status")
+    public Result<Map<String, Object>> getChunkStatus(@RequestParam String uploadId) {
+        Map<String, Object> result = chunkUploadService.getUploadStatus(uploadId);
+        if (result == null) {
+            return Result.error("上传任务不存在或已过期");
+        }
+        return Result.success(result);
+    }
+
+    @PostMapping("/chunk/merge")
+    public Result<Material> mergeChunks(
+            @RequestParam String uploadId,
+            @RequestParam String title,
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long gradeId,
+            @RequestParam(required = false) Long subjectId,
+            @RequestParam Long userId) {
+        try {
+            Material material = chunkUploadService.mergeChunks(
+                    uploadId, title, description, categoryId, gradeId, subjectId, userId);
+            return Result.success("上传成功", material);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        } catch (IOException e) {
+            return Result.error("文件合并失败: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/chunk/cancel")
+    public Result<Void> cancelChunkUpload(@RequestParam String uploadId) {
+        boolean success = chunkUploadService.cancelUpload(uploadId);
+        if (!success) {
+            return Result.error("上传任务不存在或已过期");
+        }
+        return Result.success("已取消上传", null);
     }
 }

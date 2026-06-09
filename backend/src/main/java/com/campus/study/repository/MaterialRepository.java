@@ -34,4 +34,8 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
     @Modifying
     @Query("UPDATE Material m SET m.viewCount = m.viewCount + 1 WHERE m.id = :id")
     void incrementViewCount(@Param("id") Long id);
+
+    @Modifying
+    @Query("UPDATE Material m SET m.viewCount = m.viewCount + :increment WHERE m.id = :id")
+    int updateViewCount(@Param("id") Long id, @Param("increment") int increment);
 }

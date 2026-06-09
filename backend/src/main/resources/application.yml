@@ -48,6 +48,11 @@ file:
   chunk:
     path: /app/uploads/chunks
 
+view:
+  count:
+    sync:
+      interval: 30000
+
 logging:
   level:
     com.campus.study: debug

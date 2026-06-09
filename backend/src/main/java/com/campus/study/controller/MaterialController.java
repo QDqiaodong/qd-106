@@ -6,7 +6,9 @@ import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
 import com.campus.study.service.MaterialService;
 import com.campus.study.util.FileUtil;
+import com.campus.study.util.IpUtil;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -72,17 +74,23 @@ public class MaterialController {
     }
 
     @GetMapping("/{id}")
-    @Transactional
-    public Result<Material> detail(@PathVariable Long id, @RequestParam(required = false) Long userId) {
-        Material material = materialService.getMaterialById(id);
+    public Result<Material> detail(@PathVariable Long id,
+                                    @RequestParam(required = false) Long userId,
+                                    HttpServletRequest request) {
+        Material material = materialService.getMaterialByIdWithViewCount(id);
         if (material == null) {
             return Result.error("资料不存在");
         }
         if (material.getStatus() != 1) {
             return Result.error("资料已下架");
         }
-        materialService.incrementViewCount(id);
-        material.setViewCount(material.getViewCount() + 1);
+
+        String ip = IpUtil.getIpAddr(request);
+        String userAgent = request.getHeader("User-Agent");
+        boolean isNewView = materialService.recordView(id, userId, ip, userAgent);
+        if (isNewView) {
+            material.setViewCount(material.getViewCount() + 1);
+        }
 
         if (userId != null) {
             boolean favorited = favoriteService.isFavorite(userId, id);

@@ -29,6 +29,9 @@ public class MaterialService {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Resource
+    private ViewCountService viewCountService;
+
     public Page<Material> getMaterialPage(int page, int size, String keyword, Long categoryId, Long gradeId, Long subjectId) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         
@@ -37,9 +40,11 @@ public class MaterialService {
             @SuppressWarnings("unchecked")
             Page<Material> cachedPage = (Page<Material>) redisTemplate.opsForValue().get(cacheKey);
             if (cachedPage != null) {
+                enrichMaterialListViewCount(cachedPage.getContent());
                 return cachedPage;
             }
             Page<Material> resultPage = materialRepository.findByTitleContainingAndStatus(keyword, 1, pageable);
+            enrichMaterialListViewCount(resultPage.getContent());
             redisTemplate.opsForValue().set(cacheKey, resultPage, SEARCH_CACHE_TIMEOUT, TimeUnit.MINUTES);
             return resultPage;
         }
@@ -48,19 +53,22 @@ public class MaterialService {
         boolean hasGrade = gradeId != null && gradeId > 0;
         boolean hasSubject = subjectId != null && subjectId > 0;
         
+        Page<Material> resultPage;
         if (hasCategory || hasGrade || hasSubject) {
             if (hasCategory && hasGrade && hasSubject) {
-                return materialRepository.findByCategoryIdAndGradeIdAndSubjectIdAndStatus(categoryId, gradeId, subjectId, 1, pageable);
+                resultPage = materialRepository.findByCategoryIdAndGradeIdAndSubjectIdAndStatus(categoryId, gradeId, subjectId, 1, pageable);
             } else if (hasCategory) {
-                return materialRepository.findByCategoryIdAndStatus(categoryId, 1, pageable);
+                resultPage = materialRepository.findByCategoryIdAndStatus(categoryId, 1, pageable);
             } else if (hasGrade) {
-                return materialRepository.findByGradeIdAndStatus(gradeId, 1, pageable);
+                resultPage = materialRepository.findByGradeIdAndStatus(gradeId, 1, pageable);
             } else {
-                return materialRepository.findBySubjectIdAndStatus(subjectId, 1, pageable);
+                resultPage = materialRepository.findBySubjectIdAndStatus(subjectId, 1, pageable);
             }
+        } else {
+            resultPage = materialRepository.findByStatus(1, pageable);
         }
-        
-        return materialRepository.findByStatus(1, pageable);
+        enrichMaterialListViewCount(resultPage.getContent());
+        return resultPage;
     }
 
     @SuppressWarnings("unchecked")
@@ -70,14 +78,33 @@ public class MaterialService {
             return cachedList;
         }
         List<Material> hotList = materialRepository.findTop10ByStatusOrderByViewCountDesc(1);
+        for (Material material : hotList) {
+            int redisViewCount = viewCountService.getViewCount(material.getId());
+            material.setViewCount(material.getViewCount() + redisViewCount);
+        }
+        hotList.sort((m1, m2) -> Integer.compare(m2.getViewCount(), m1.getViewCount()));
+        if (hotList.size() > 10) {
+            hotList = hotList.subList(0, 10);
+        }
         redisTemplate.opsForValue().set(HOT_MATERIALS_CACHE_KEY, hotList, HOT_CACHE_TIMEOUT, TimeUnit.MINUTES);
         return hotList;
     }
 
-    @Transactional
-    public void incrementViewCount(Long id) {
-        materialRepository.incrementViewCount(id);
-        redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+    public boolean recordView(Long materialId, Long userId, String ip, String userAgent) {
+        boolean isNewView = viewCountService.recordView(materialId, userId, ip, userAgent);
+        if (isNewView) {
+            redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+        }
+        return isNewView;
+    }
+
+    public Material getMaterialByIdWithViewCount(Long id) {
+        Material material = materialRepository.findById(id).orElse(null);
+        if (material != null) {
+            int redisViewCount = viewCountService.getViewCount(id);
+            material.setViewCount(material.getViewCount() + redisViewCount);
+        }
+        return material;
     }
 
     public Material uploadMaterial(Material material, Long userId) {
@@ -107,7 +134,19 @@ public class MaterialService {
 
     public Page<Material> getMyUploads(int page, int size, Long userId) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        return materialRepository.findByUserId(userId, pageable);
+        Page<Material> resultPage = materialRepository.findByUserId(userId, pageable);
+        enrichMaterialListViewCount(resultPage.getContent());
+        return resultPage;
+    }
+
+    private void enrichMaterialListViewCount(List<Material> materials) {
+        if (materials == null || materials.isEmpty()) {
+            return;
+        }
+        for (Material material : materials) {
+            int redisViewCount = viewCountService.getViewCount(material.getId());
+            material.setViewCount(material.getViewCount() + redisViewCount);
+        }
     }
 
     public Material getMaterialById(Long id) {

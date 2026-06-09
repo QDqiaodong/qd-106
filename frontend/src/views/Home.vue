@@ -79,39 +79,108 @@
 
     <div class="content-wrapper">
       <div class="main-content">
-        <div class="material-list">
-          <el-card
-            v-for="item in materialList"
-            :key="item.id"
-            class="material-card"
-            shadow="hover"
-            @click="goToDetail(item.id)"
-          >
-            <div class="card-header">
-              <el-icon :size="20" color="#409EFF"><Document /></el-icon>
-              <span class="card-title">{{ item.title }}</span>
-            </div>
-            <div class="card-description">{{ item.description || '暂无描述' }}</div>
-            <div class="card-tags">
-              <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
-              <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
-              <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
-            </div>
-            <div class="card-footer">
-              <div class="card-meta">
-                <span class="meta-item">
-                  <el-icon><View /></el-icon>
-                  {{ item.viewCount || 0 }}
-                </span>
-                <span class="meta-item">
-                  <el-icon><Download /></el-icon>
-                  {{ item.downloadCount || 0 }}
-                </span>
-              </div>
-              <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
-            </div>
-          </el-card>
+        <div class="list-header">
+          <span class="list-count">共 {{ total }} 份资料</span>
+          <div class="view-toggle">
+            <el-tooltip content="卡片网格">
+              <el-button
+                :type="appStore.viewMode === 'grid' ? 'primary' : 'default'"
+                :icon="Grid"
+                circle
+                size="small"
+                @click="setViewMode('grid')"
+              />
+            </el-tooltip>
+            <el-tooltip content="列表紧凑">
+              <el-button
+                :type="appStore.viewMode === 'list' ? 'primary' : 'default'"
+                :icon="List"
+                circle
+                size="small"
+                @click="setViewMode('list')"
+              />
+            </el-tooltip>
+          </div>
         </div>
+
+        <transition name="fade-move" mode="out-in">
+          <div v-if="appStore.viewMode === 'grid'" key="grid" class="material-grid">
+            <el-card
+              v-for="item in materialList"
+              :key="item.id"
+              class="material-card"
+              shadow="hover"
+              @click="goToDetail(item.id)"
+            >
+              <div class="card-header">
+                <el-icon :size="20" color="#409EFF"><Document /></el-icon>
+                <span class="card-title">{{ item.title }}</span>
+              </div>
+              <div class="card-description">{{ item.description || '暂无描述' }}</div>
+              <div class="card-tags">
+                <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
+                <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
+                <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
+              </div>
+              <div class="card-footer">
+                <div class="card-meta">
+                  <span class="meta-item">
+                    <el-icon><View /></el-icon>
+                    {{ item.viewCount || 0 }}
+                  </span>
+                  <span class="meta-item">
+                    <el-icon><Download /></el-icon>
+                    {{ item.downloadCount || 0 }}
+                  </span>
+                </div>
+                <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
+              </div>
+            </el-card>
+          </div>
+
+          <div v-else key="list" class="material-list-view">
+            <div
+              v-for="item in materialList"
+              :key="item.id"
+              class="list-item"
+              @click="goToDetail(item.id)"
+            >
+              <div class="list-thumb">
+                <img v-if="item.cover" :src="item.cover" :alt="item.title" />
+                <el-icon v-else :size="32" color="#409EFF"><Document /></el-icon>
+              </div>
+              <div class="list-content">
+                <div class="list-title">{{ item.title }}</div>
+                <div class="list-description">{{ item.description || '暂无描述' }}</div>
+                <div class="list-tags">
+                  <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
+                  <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
+                  <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
+                </div>
+              </div>
+              <div class="list-stats">
+                <div class="stat-item">
+                  <el-icon><View /></el-icon>
+                  <span class="stat-num">{{ item.viewCount || 0 }}</span>
+                  <span class="stat-label">浏览</span>
+                </div>
+                <div class="stat-item">
+                  <el-icon><Star /></el-icon>
+                  <span class="stat-num">{{ item.favoriteCount || 0 }}</span>
+                  <span class="stat-label">收藏</span>
+                </div>
+                <div class="stat-item">
+                  <el-icon><Download /></el-icon>
+                  <span class="stat-num">{{ item.downloadCount || 0 }}</span>
+                  <span class="stat-label">下载</span>
+                </div>
+                <div class="stat-time">
+                  <span>{{ formatDate(item.createdAt) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
 
         <div v-if="materialList.length === 0" class="empty-tip">
           <el-empty description="暂无资料" />
@@ -121,7 +190,7 @@
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
-            :page-sizes="[8, 16, 24, 32]"
+            :page-sizes="appStore.viewMode === 'grid' ? [8, 16, 24, 32] : [10, 20, 30, 50]"
             :total="total"
             layout="total, sizes, prev, pager, next, jumper"
             @size-change="handleSizeChange"
@@ -162,12 +231,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Search, Document, View, Download, Histogram } from '@element-plus/icons-vue'
+import { Search, Document, View, Download, Histogram, Grid, List, Star } from '@element-plus/icons-vue'
 import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials } from '@/api/material'
+import { useAppStore } from '@/store'
 
 const router = useRouter()
+const appStore = useAppStore()
 
 const searchKeyword = ref('')
 const selectedCategory = ref(null)
@@ -185,6 +256,18 @@ const subjects = ref([])
 const categoryMap = ref({})
 const gradeMap = ref({})
 const subjectMap = ref({})
+
+const setViewMode = (mode) => {
+  appStore.setViewMode(mode)
+  currentPage.value = 1
+  loadMaterials()
+}
+
+const handleResize = () => {
+  if (window.innerWidth <= 768 && appStore.viewMode === 'grid' && !localStorage.getItem('material_view_mode')) {
+    appStore.setViewMode('list')
+  }
+}
 
 const loadCategories = async () => {
   try {
@@ -296,6 +379,11 @@ onMounted(() => {
   loadSubjects()
   loadMaterials()
   loadHotMaterials()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
 })
 </script>
 
@@ -358,9 +446,27 @@ onMounted(() => {
 
 .main-content {
   flex: 1;
+  min-width: 0;
 }
 
-.material-list {
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.list-count {
+  font-size: 14px;
+  color: #606266;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+}
+
+.material-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
@@ -436,6 +542,136 @@ onMounted(() => {
 .upload-time {
   color: #c0c4cc;
   font-size: 13px;
+}
+
+.material-list-view {
+  margin-bottom: 24px;
+}
+
+.list-item {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid transparent;
+}
+
+.list-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  border-color: #e4e7ed;
+}
+
+.list-thumb {
+  width: 120px;
+  height: 90px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.list-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-description {
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex: 1;
+}
+
+.list-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.list-stats {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  padding-left: 16px;
+  border-left: 1px solid #f0f0f0;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.stat-item .el-icon {
+  color: #909399;
+  font-size: 16px;
+}
+
+.stat-num {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+}
+
+.stat-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.fade-move-enter-active,
+.fade-move-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.fade-move-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-move-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 .empty-tip {
@@ -548,8 +784,41 @@ onMounted(() => {
     width: 100%;
   }
   
-  .material-list {
+  .material-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .list-item {
+    flex-wrap: wrap;
+  }
+  
+  .list-thumb {
+    width: 80px;
+    height: 60px;
+  }
+  
+  .list-stats {
+    width: 100%;
+    flex-direction: row;
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: none;
+    border-top: 1px solid #f0f0f0;
+  }
+  
+  .stat-item {
+    flex-direction: row;
+    gap: 4px;
+  }
+  
+  .stat-label {
+    display: none;
+  }
+  
+  .stat-time {
+    display: none;
   }
 }
 </style>

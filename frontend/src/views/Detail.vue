@@ -17,6 +17,17 @@
           </div>
           <div class="action-buttons">
             <el-button
+              :type="isInBasket ? 'success' : 'default'"
+              size="large"
+              @click="handleToggleBasket"
+            >
+              <el-icon>
+                <ShoppingCartFull v-if="isInBasket" />
+                <ShoppingCart v-else />
+              </el-icon>
+              {{ isInBasket ? '已加入资料篮' : '加入资料篮' }}
+            </el-button>
+            <el-button
               :type="isFavorited ? 'warning' : 'default'"
               size="large"
               @click="handleFavorite"
@@ -183,7 +194,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document,
-  Collection, Plus, Flag, Delete, Notebook
+  Collection, Plus, Flag, Delete, Notebook, ShoppingCart, ShoppingCartFull
 } from '@element-plus/icons-vue'
 import {
   getMaterialDetail, getCategoryList, getGradeList, getSubjectList,
@@ -207,6 +218,7 @@ const gradeMap = ref({})
 const subjectMap = ref({})
 
 const isFavorited = ref(false)
+const isInBasket = computed(() => appStore.isInBasket(materialId.value))
 
 const bookmarks = ref([])
 const showAddDialog = ref(false)
@@ -293,6 +305,25 @@ const handleDownload = () => {
     window.open(detail.value.fileUrl, '_blank')
   } else {
     ElMessage.warning('该资料暂无可下载文件')
+  }
+}
+
+const handleToggleBasket = () => {
+  const d = detail.value
+  if (appStore.isInBasket(materialId.value)) {
+    appStore.removeFromBasket(materialId.value)
+    ElMessage.success('已从资料篮移除')
+  } else {
+    const material = {
+      ...d,
+      categoryName: getCategoryName(d.categoryId),
+      gradeName: getGradeName(d.gradeId),
+      subjectName: getSubjectName(d.subjectId)
+    }
+    const added = appStore.addToBasket(material)
+    if (added) {
+      ElMessage.success('已加入本轮复习资料篮')
+    }
   }
 }
 

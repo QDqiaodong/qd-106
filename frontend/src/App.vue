@@ -32,15 +32,40 @@
         <router-view />
       </el-main>
     </el-container>
+
+    <div class="basket-fab-wrapper">
+      <el-tooltip content="本轮复习资料篮" placement="left">
+        <el-badge
+          :value="appStore.basketCount"
+          :hidden="appStore.basketCount === 0"
+          :max="99"
+          class="basket-badge"
+        >
+          <el-button
+            type="primary"
+            class="basket-fab"
+            circle
+            size="large"
+            @click="showBasket = true"
+          >
+            <el-icon :size="20"><ShoppingCart /></el-icon>
+          </el-button>
+        </el-badge>
+      </el-tooltip>
+    </div>
+
+    <ReviewBasket v-model="showBasket" />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { Reading, House, Upload, User } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import { Reading, House, Upload, User, ShoppingCart } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store'
+import ReviewBasket from '@/components/ReviewBasket.vue'
 
 const appStore = useAppStore()
+const showBasket = ref(false)
 
 onMounted(() => {
   appStore.loadFavorites()
@@ -127,5 +152,32 @@ onMounted(() => {
 
 .el-header {
   --el-header-padding: 0;
+}
+
+.basket-fab-wrapper {
+  position: fixed;
+  right: 30px;
+  bottom: 50px;
+  z-index: 999;
+}
+
+.basket-fab {
+  width: 60px;
+  height: 60px;
+  box-shadow: 0 4px 20px rgba(64, 158, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.basket-fab:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(64, 158, 255, 0.5);
+}
+
+.basket-badge :deep(.el-badge__content) {
+  font-size: 12px;
+  padding: 0 6px;
+  height: 20px;
+  line-height: 20px;
+  min-width: 20px;
 }
 </style>

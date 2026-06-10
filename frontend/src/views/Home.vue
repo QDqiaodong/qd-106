@@ -135,6 +135,19 @@
                 </div>
                 <div class="card-actions">
                   <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
+                  <el-tooltip :content="appStore.isInBasket(item.id) ? '已在资料篮中' : '加入复习资料篮'">
+                    <el-button
+                      :type="appStore.isInBasket(item.id) ? 'success' : 'default'"
+                      size="small"
+                      text
+                      @click="(e) => handleToggleBasket(e, item)"
+                    >
+                      <el-icon>
+                        <ShoppingCartFull v-if="appStore.isInBasket(item.id)" />
+                        <ShoppingCart v-else />
+                      </el-icon>
+                    </el-button>
+                  </el-tooltip>
                   <el-button
                     :type="appStore.isFavorite(item.id) ? 'warning' : 'default'"
                     size="small"
@@ -176,6 +189,20 @@
                   <el-icon><View /></el-icon>
                   <span class="stat-num">{{ item.viewCount || 0 }}</span>
                   <span class="stat-label">浏览</span>
+                </div>
+                <div
+                  class="stat-item basket-stat"
+                  :class="{ 'is-in-basket': appStore.isInBasket(item.id) }"
+                  @click="(e) => handleToggleBasket(e, item)"
+                >
+                  <el-tooltip :content="appStore.isInBasket(item.id) ? '已在资料篮中' : '加入复习资料篮'" placement="top">
+                    <el-icon>
+                      <ShoppingCartFull v-if="appStore.isInBasket(item.id)" />
+                      <ShoppingCart v-else />
+                    </el-icon>
+                  </el-tooltip>
+                  <span class="stat-num">-</span>
+                  <span class="stat-label">资料篮</span>
                 </div>
                 <div
                   class="stat-item favorite-stat"
@@ -262,7 +289,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled } from '@element-plus/icons-vue'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull } from '@element-plus/icons-vue'
 import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -442,6 +469,25 @@ const handleFavorite = async (e, id) => {
     await appStore.toggleFavorite(id)
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '操作失败，请重试')
+  }
+}
+
+const handleToggleBasket = (e, item) => {
+  e.stopPropagation()
+  const material = {
+    ...item,
+    categoryName: getCategoryName(item.categoryId),
+    gradeName: getGradeName(item.gradeId),
+    subjectName: getSubjectName(item.subjectId)
+  }
+  if (appStore.isInBasket(item.id)) {
+    appStore.removeFromBasket(item.id)
+    ElMessage.success('已从资料篮移除')
+  } else {
+    const added = appStore.addToBasket(material)
+    if (added) {
+      ElMessage.success('已加入本轮复习资料篮')
+    }
   }
 }
 
@@ -699,7 +745,7 @@ onUnmounted(() => {
 }
 
 .list-stats {
-  width: 160px;
+  width: 200px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -738,6 +784,29 @@ onUnmounted(() => {
 
 .stat-item.favorite-stat.is-favorited .stat-num {
   color: #e6a23c;
+}
+
+.stat-item.basket-stat {
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.stat-item.basket-stat:hover {
+  background: #f0f9ff;
+}
+
+.stat-item.basket-stat .el-icon {
+  color: #909399;
+}
+
+.stat-item.basket-stat.is-in-basket .el-icon {
+  color: #67c23a;
+}
+
+.stat-item.basket-stat.is-in-basket .stat-label {
+  color: #67c23a;
 }
 
 .stat-num {

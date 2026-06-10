@@ -208,3 +208,35 @@ export function deleteReadingProgress(materialId) {
     params: { userId: DEFAULT_USER_ID }
   })
 }
+
+export function getFilterSnapshots() {
+  return request({
+    url: '/filter-snapshots',
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
+export function createFilterSnapshot(data) {
+  return request({
+    url: '/filter-snapshots',
+    method: 'post',
+    params: { userId: DEFAULT_USER_ID, ...data }
+  })
+}
+
+export function updateFilterSnapshot(id, data) {
+  return request({
+    url: `/filter-snapshots/${id}`,
+    method: 'put',
+    params: { userId: DEFAULT_USER_ID, ...data }
+  })
+}
+
+export function deleteFilterSnapshot(id) {
+  return request({
+    url: `/filter-snapshots/${id}`,
+    method: 'delete',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}

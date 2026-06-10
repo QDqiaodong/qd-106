@@ -75,7 +75,81 @@
           {{ subject.name }}
         </el-tag>
       </div>
+      <div class="filter-actions">
+        <el-button type="primary" plain size="small" :icon="Plus" @click="openSaveDialog">
+          保存为快捷筛选
+        </el-button>
+      </div>
     </div>
+
+    <div v-if="filterSnapshots.length > 0" class="snapshot-section">
+      <div class="snapshot-header">
+        <div class="snapshot-title">
+          <el-icon color="#409EFF"><CollectionTag /></el-icon>
+          <span>快捷筛选</span>
+        </div>
+      </div>
+      <div class="snapshot-list">
+        <div
+          v-for="snapshot in filterSnapshots"
+          :key="snapshot.id"
+          class="snapshot-item"
+          @click="applySnapshot(snapshot)"
+        >
+          <div class="snapshot-item-header">
+            <span class="snapshot-name">{{ snapshot.name }}</span>
+            <el-button
+              type="danger"
+              text
+              size="small"
+              :icon="Delete"
+              @click="(e) => handleDeleteSnapshot(e, snapshot)"
+            />
+          </div>
+          <div class="snapshot-tags">
+            <el-tag
+              v-for="(tag, index) in getSnapshotTags(snapshot)"
+              :key="index"
+              size="small"
+              :type="tag.type"
+              effect="light"
+            >
+              {{ tag.label }}
+            </el-tag>
+            <span v-if="getSnapshotTags(snapshot).length === 0" class="snapshot-empty-tip">全部资料</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <el-dialog v-model="saveDialogVisible" title="保存为快捷筛选" width="420px">
+      <el-form label-position="top">
+        <el-form-item label="快捷筛选名称">
+          <el-input
+            v-model="snapshotName"
+            placeholder="例如：高二数学月考卷"
+            maxlength="50"
+            show-word-limit
+            @keyup.enter="handleSaveSnapshot"
+          />
+        </el-form-item>
+        <el-form-item label="当前筛选条件">
+          <div class="preview-tags">
+            <el-tag v-if="searchKeyword" size="small" type="primary" effect="light">关键词: {{ searchKeyword }}</el-tag>
+            <el-tag v-if="selectedCategory" size="small" type="success" effect="light">{{ getCategoryName(selectedCategory) }}</el-tag>
+            <el-tag v-if="selectedGrade" size="small" type="info" effect="light">{{ getGradeName(selectedGrade) }}</el-tag>
+            <el-tag v-if="selectedSubject" size="small" type="warning" effect="light">{{ getSubjectName(selectedSubject) }}</el-tag>
+            <span v-if="!searchKeyword && !selectedCategory && !selectedGrade && !selectedSubject" class="snapshot-empty-tip">
+              （无筛选条件，将保存为"全部资料"）
+            </span>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="saveDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSaveSnapshot">确认保存</el-button>
+      </template>
+    </el-dialog>
 
     <div class="content-wrapper">
       <div class="main-content">
@@ -289,8 +363,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull } from '@element-plus/icons-vue'
-import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials } from '@/api/material'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus } from '@element-plus/icons-vue'
+import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot } from '@/api/material'
 import { useAppStore } from '@/store'
 
 const router = useRouter()
@@ -314,6 +388,10 @@ const hotListSemester = ref([])
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
+
+const filterSnapshots = ref([])
+const saveDialogVisible = ref(false)
+const snapshotName = ref('')
 
 const currentHotList = computed(() => {
   switch (hotTab.value) {
@@ -491,12 +569,78 @@ const handleToggleBasket = (e, item) => {
   }
 }
 
+const loadFilterSnapshots = async () => {
+  try {
+    const res = await getFilterSnapshots()
+    filterSnapshots.value = res.data || []
+  } catch (e) {
+    console.error('加载筛选快照失败', e)
+  }
+}
+
+const openSaveDialog = () => {
+  snapshotName.value = ''
+  saveDialogVisible.value = true
+}
+
+const handleSaveSnapshot = async () => {
+  if (!snapshotName.value.trim()) {
+    ElMessage.warning('请输入快照名称')
+    return
+  }
+  try {
+    await createFilterSnapshot({
+      name: snapshotName.value.trim(),
+      keyword: searchKeyword.value,
+      categoryId: selectedCategory.value,
+      gradeId: selectedGrade.value,
+      subjectId: selectedSubject.value
+    })
+    ElMessage.success('快照保存成功')
+    saveDialogVisible.value = false
+    loadFilterSnapshots()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '保存失败，请重试')
+  }
+}
+
+const applySnapshot = (snapshot) => {
+  searchKeyword.value = snapshot.keyword || ''
+  selectedCategory.value = snapshot.categoryId || null
+  selectedGrade.value = snapshot.gradeId || null
+  selectedSubject.value = snapshot.subjectId || null
+  currentPage.value = 1
+  loadMaterials()
+  ElMessage.success(`已应用：${snapshot.name}`)
+}
+
+const handleDeleteSnapshot = async (e, snapshot) => {
+  e.stopPropagation()
+  try {
+    await deleteFilterSnapshot(snapshot.id)
+    ElMessage.success('删除成功')
+    loadFilterSnapshots()
+  } catch (e) {
+    ElMessage.error(e.response?.data?.message || '删除失败，请重试')
+  }
+}
+
+const getSnapshotTags = (snapshot) => {
+  const tags = []
+  if (snapshot.keyword) tags.push({ type: 'primary', label: `关键词:${snapshot.keyword}` })
+  if (snapshot.categoryId) tags.push({ type: 'success', label: getCategoryName(snapshot.categoryId) })
+  if (snapshot.gradeId) tags.push({ type: 'info', label: getGradeName(snapshot.gradeId) })
+  if (snapshot.subjectId) tags.push({ type: 'warning', label: getSubjectName(snapshot.subjectId) })
+  return tags
+}
+
 onMounted(() => {
   loadCategories()
   loadGrades()
   loadSubjects()
   loadMaterials()
   loadHotMaterials()
+  loadFilterSnapshots()
   window.addEventListener('resize', handleResize)
 })
 
@@ -536,8 +680,8 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.filter-group:last-child {
-  margin-bottom: 0;
+.filter-group:last-of-type {
+  margin-bottom: 16px;
 }
 
 .filter-label {
@@ -555,6 +699,96 @@ onUnmounted(() => {
 
 .filter-tag:hover {
   transform: translateY(-1px);
+}
+
+.filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.snapshot-section {
+  background: #fff;
+  padding: 16px 24px 20px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+}
+
+.snapshot-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.snapshot-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #303133;
+}
+
+.snapshot-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.snapshot-item {
+  flex: 0 0 calc(25% - 9px);
+  min-width: 200px;
+  background: #f5f7fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.snapshot-item:hover {
+  background: #ecf5ff;
+  border-color: #409eff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+
+.snapshot-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.snapshot-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.snapshot-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.snapshot-empty-tip {
+  font-size: 12px;
+  color: #909399;
+}
+
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .content-wrapper {
@@ -964,6 +1198,12 @@ onUnmounted(() => {
   gap: 4px;
 }
 
+@media (max-width: 1200px) {
+  .snapshot-item {
+    flex: 0 0 calc(33.333% - 8px);
+  }
+}
+
 @media (max-width: 960px) {
   .content-wrapper {
     flex-direction: column;
@@ -975,6 +1215,17 @@ onUnmounted(() => {
   
   .material-grid {
     grid-template-columns: 1fr;
+  }
+
+  .snapshot-item {
+    flex: 0 0 calc(50% - 6px);
+  }
+}
+
+@media (max-width: 600px) {
+  .snapshot-item {
+    flex: 0 0 100%;
+    min-width: 0;
   }
 }
 

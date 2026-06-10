@@ -109,6 +109,21 @@ CREATE TABLE IF NOT EXISTS `reading_progress` (
   KEY `idx_material` (`material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读进度表';
 
+CREATE TABLE IF NOT EXISTS `filter_snapshot` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
+  `name` VARCHAR(100) NOT NULL COMMENT '快照名称',
+  `keyword` VARCHAR(255) DEFAULT '' COMMENT '关键词',
+  `category_id` INT UNSIGNED DEFAULT NULL COMMENT '分类ID',
+  `grade_id` INT UNSIGNED DEFAULT NULL COMMENT '年级ID',
+  `subject_id` INT UNSIGNED DEFAULT NULL COMMENT '学科ID',
+  `sort` INT DEFAULT 0 COMMENT '排序',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='筛选快照表';
+
 INSERT IGNORE INTO `grade` (`id`, `name`, `sort`) VALUES
 (1, '一年级', 1),
 (2, '二年级', 2),

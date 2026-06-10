@@ -151,3 +151,35 @@ export function cancelChunkUpload(uploadId) {
     params: { uploadId }
   })
 }
+
+export function getBookmarks(materialId) {
+  return request({
+    url: `/materials/${materialId}/bookmarks`,
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
+export function addBookmark(materialId, data) {
+  return request({
+    url: `/materials/${materialId}/bookmarks`,
+    method: 'post',
+    params: { userId: DEFAULT_USER_ID, ...data }
+  })
+}
+
+export function updateBookmark(materialId, id, data) {
+  return request({
+    url: `/materials/${materialId}/bookmarks/${id}`,
+    method: 'put',
+    params: { userId: DEFAULT_USER_ID, ...data }
+  })
+}
+
+export function deleteBookmark(materialId, id) {
+  return request({
+    url: `/materials/${materialId}/bookmarks/${id}`,
+    method: 'delete',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}

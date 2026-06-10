@@ -81,6 +81,19 @@ CREATE TABLE IF NOT EXISTS `favorite` (
   KEY `idx_material` (`material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏表';
 
+CREATE TABLE IF NOT EXISTS `bookmark` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
+  `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `page_number` INT DEFAULT NULL COMMENT '页码',
+  `chapter_name` VARCHAR(100) DEFAULT '' COMMENT '章节名称',
+  `note` VARCHAR(255) DEFAULT '' COMMENT '备注',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_material` (`user_id`, `material_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='书签表';
+
 INSERT IGNORE INTO `grade` (`id`, `name`, `sort`) VALUES
 (1, '一年级', 1),
 (2, '二年级', 2),

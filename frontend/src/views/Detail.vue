@@ -71,7 +71,7 @@
         <div class="preview-container">
           <iframe
             v-if="previewUrl"
-            :src="previewUrl"
+            :src="iframeSrc"
             class="preview-iframe"
             frameborder="0"
           ></iframe>
@@ -82,6 +82,97 @@
           </div>
         </div>
       </el-card>
+
+      <el-card class="bookmark-card">
+        <template #header>
+          <div class="bookmark-header">
+            <div class="header-left">
+              <el-icon :size="18" color="#E6A23C"><Collection /></el-icon>
+              <span class="section-title">阅读书签</span>
+              <span class="bookmark-count">{{ bookmarks.length }} 个</span>
+            </div>
+            <el-button type="primary" size="small" @click="showAddDialog = true">
+              <el-icon><Plus /></el-icon>
+              添加书签
+            </el-button>
+          </div>
+        </template>
+        <div class="bookmark-content">
+          <div v-if="bookmarks.length === 0" class="bookmark-empty">
+            <el-icon :size="48" color="#c0c4cc"><Notebook /></el-icon>
+            <p class="empty-text">暂无书签</p>
+            <p class="empty-tip">添加书签，方便复习时快速定位重点页</p>
+          </div>
+          <div v-else class="bookmark-list">
+            <div
+              v-for="item in bookmarks"
+              :key="item.id"
+              class="bookmark-item"
+              @click="jumpToBookmark(item)"
+            >
+              <div class="bookmark-icon">
+                <el-icon :size="20" color="#E6A23C"><Flag /></el-icon>
+              </div>
+              <div class="bookmark-info">
+                <div class="bookmark-title">
+                  <span v-if="item.pageNumber" class="page-badge">第 {{ item.pageNumber }} 页</span>
+                  <span v-if="item.chapterName" class="chapter-name">{{ item.chapterName }}</span>
+                </div>
+                <p v-if="item.note" class="bookmark-note">{{ item.note }}</p>
+                <span class="bookmark-time">{{ formatDate(item.createdAt) }}</span>
+              </div>
+              <div class="bookmark-actions">
+                <el-button
+                  type="danger"
+                  size="small"
+                  text
+                  @click.stop="handleDeleteBookmark(item.id)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
+      <el-dialog v-model="showAddDialog" title="添加书签" width="420px">
+        <el-form :model="bookmarkForm" label-width="80px">
+          <el-form-item label="页码">
+            <el-input-number
+              v-model="bookmarkForm.pageNumber"
+              :min="1"
+              :max="9999"
+              placeholder="请输入页码"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="章节名称">
+            <el-input
+              v-model="bookmarkForm.chapterName"
+              placeholder="请输入章节名称（选填）"
+              maxlength="100"
+              show-word-limit
+            />
+          </el-form-item>
+          <el-form-item label="备注">
+            <el-input
+              v-model="bookmarkForm.note"
+              type="textarea"
+              :rows="2"
+              placeholder="简短备注，标记重点内容（选填）"
+              maxlength="255"
+              show-word-limit
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showAddDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleAddBookmark" :loading="addingBookmark">
+            保存
+          </el-button>
+        </template>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -89,9 +180,15 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document } from '@element-plus/icons-vue'
-import { getMaterialDetail, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document,
+  Collection, Plus, Flag, Delete, Notebook
+} from '@element-plus/icons-vue'
+import {
+  getMaterialDetail, getCategoryList, getGradeList, getSubjectList,
+  getBookmarks, addBookmark, deleteBookmark
+} from '@/api/material'
 import { useAppStore } from '@/store'
 
 const route = useRoute()
@@ -110,6 +207,20 @@ const gradeMap = ref({})
 const subjectMap = ref({})
 
 const isFavorited = ref(false)
+
+const bookmarks = ref([])
+const showAddDialog = ref(false)
+const addingBookmark = ref(false)
+const bookmarkForm = ref({
+  pageNumber: null,
+  chapterName: '',
+  note: ''
+})
+
+const iframeSrc = computed(() => {
+  if (!previewUrl.value) return ''
+  return previewUrl.value
+})
 
 const syncFavoriteFromStore = () => {
   isFavorited.value = appStore.isFavorite(materialId.value)
@@ -185,10 +296,96 @@ const handleDownload = () => {
   }
 }
 
+const loadBookmarks = async () => {
+  try {
+    const res = await getBookmarks(materialId.value)
+    bookmarks.value = res.data || []
+  } catch (e) {
+    console.error('加载书签失败', e)
+  }
+}
+
+const handleAddBookmark = async () => {
+  const form = bookmarkForm.value
+  if ((!form.pageNumber || form.pageNumber <= 0) && !form.chapterName.trim()) {
+    ElMessage.warning('请填写页码或章节名称')
+    return
+  }
+
+  addingBookmark.value = true
+  try {
+    const data = {}
+    if (form.pageNumber && form.pageNumber > 0) {
+      data.pageNumber = form.pageNumber
+    }
+    if (form.chapterName.trim()) {
+      data.chapterName = form.chapterName.trim()
+    }
+    if (form.note.trim()) {
+      data.note = form.note.trim()
+    }
+
+    await addBookmark(materialId.value, data)
+    ElMessage.success('书签添加成功')
+    showAddDialog.value = false
+    bookmarkForm.value = {
+      pageNumber: null,
+      chapterName: '',
+      note: ''
+    }
+    loadBookmarks()
+  } catch (e) {
+    console.error('添加书签失败', e)
+    ElMessage.error(e.response?.data?.message || '添加失败，请重试')
+  } finally {
+    addingBookmark.value = false
+  }
+}
+
+const handleDeleteBookmark = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个书签吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+  } catch {
+    return
+  }
+
+  try {
+    await deleteBookmark(materialId.value, id)
+    ElMessage.success('删除成功')
+    loadBookmarks()
+  } catch (e) {
+    console.error('删除书签失败', e)
+    ElMessage.error('删除失败，请重试')
+  }
+}
+
+const jumpToBookmark = (bookmark) => {
+  if (!previewUrl.value) {
+    ElMessage.warning('暂无预览文件')
+    return
+  }
+  if (bookmark.pageNumber) {
+    const separator = previewUrl.value.includes('#') ? '&' : '#'
+    const newSrc = previewUrl.value + separator + 'page=' + bookmark.pageNumber
+    const iframe = document.querySelector('.preview-iframe')
+    if (iframe) {
+      iframe.src = newSrc
+    }
+    ElMessage.success(`已跳转到第 ${bookmark.pageNumber} 页`)
+  } else {
+    ElMessage.info('该书签未设置页码')
+  }
+}
+
 onMounted(() => {
   syncFavoriteFromStore()
   loadDicts()
   loadDetail()
+  loadBookmarks()
 })
 </script>
 
@@ -324,6 +521,138 @@ onMounted(() => {
   color: #c0c4cc;
 }
 
+.bookmark-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.bookmark-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bookmark-count {
+  font-size: 13px;
+  color: #909399;
+  margin-left: 4px;
+}
+
+.bookmark-content {
+  min-height: 120px;
+}
+
+.bookmark-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 10px;
+}
+
+.empty-text {
+  font-size: 15px;
+  color: #909399;
+  margin: 0;
+}
+
+.empty-tip {
+  font-size: 13px;
+  color: #c0c4cc;
+  margin: 0;
+}
+
+.bookmark-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.bookmark-item:hover {
+  background: #f0f9ff;
+  border-color: #b3d8ff;
+}
+
+.bookmark-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #fdf6ec;
+  border-radius: 50%;
+}
+
+.bookmark-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bookmark-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.page-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #ecf5ff;
+  color: #409eff;
+  font-size: 13px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.chapter-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.bookmark-note {
+  font-size: 13px;
+  color: #606266;
+  margin: 4px 0 6px 0;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bookmark-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.bookmark-actions {
+  flex-shrink: 0;
+}
+
 @media (max-width: 768px) {
   .info-header {
     flex-direction: column;
@@ -341,6 +670,25 @@ onMounted(() => {
   .preview-iframe,
   .preview-placeholder {
     height: 400px;
+  }
+
+  .bookmark-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .bookmark-header .el-button {
+    width: 100%;
+  }
+
+  .bookmark-item {
+    padding: 12px;
+  }
+
+  .bookmark-icon {
+    width: 32px;
+    height: 32px;
   }
 }
 </style>

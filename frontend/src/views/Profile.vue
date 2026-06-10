@@ -213,6 +213,11 @@ const loadUploads = async () => {
     uploadList.value = res.data?.list || []
     uploadTotal.value = res.data?.total || 0
     uploadCount.value = uploadTotal.value
+    
+    if (uploadList.value.length === 0 && uploadPage.value > 1) {
+      uploadPage.value--
+      return loadUploads()
+    }
   } catch (e) {
     console.error('加载我的上传失败', e)
     uploadList.value = []
@@ -238,6 +243,11 @@ const loadFavorites = async () => {
       })
       appStore.favoriteMap = map
       appStore.favoritesLoaded = true
+    }
+    
+    if (favoriteList.value.length === 0 && favoritePage.value > 1) {
+      favoritePage.value--
+      return loadFavorites()
     }
   } catch (e) {
     console.error('加载我的收藏失败', e)
@@ -315,6 +325,11 @@ const handleUnfavorite = async (id) => {
     await appStore.doUnfavorite(id)
     favoriteList.value = favoriteList.value.filter(item => item.id !== id)
     ElMessage.success('已取消收藏')
+    
+    if (favoriteList.value.length === 0 && favoritePage.value > 1) {
+      favoritePage.value--
+      loadFavorites()
+    }
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error(e.response?.data?.message || '操作失败，请重试')

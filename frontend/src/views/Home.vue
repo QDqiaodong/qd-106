@@ -227,9 +227,14 @@
               <span>热门资料</span>
             </div>
           </template>
+          <el-tabs v-model="hotTab" class="hot-tabs" stretch>
+            <el-tab-pane label="近7天" name="7d" />
+            <el-tab-pane label="近30天" name="30d" />
+            <el-tab-pane label="本学期" name="semester" />
+          </el-tabs>
           <div class="hot-list">
             <div
-              v-for="(item, index) in hotList"
+              v-for="(item, index) in currentHotList"
               :key="item.id"
               class="hot-item"
               @click="goToDetail(item.id)"
@@ -243,6 +248,9 @@
                 </div>
               </div>
             </div>
+            <div v-if="currentHotList.length === 0" class="hot-empty">
+              <el-empty description="暂无数据" :image-size="60" />
+            </div>
           </div>
         </el-card>
       </div>
@@ -251,7 +259,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled } from '@element-plus/icons-vue'
@@ -272,10 +280,22 @@ const currentPage = ref(1)
 const pageSize = ref(appStore.viewMode === 'grid' ? GRID_DEFAULT_SIZE : LIST_DEFAULT_SIZE)
 const total = ref(0)
 const materialList = ref([])
-const hotList = ref([])
+const hotTab = ref('7d')
+const hotList7d = ref([])
+const hotList30d = ref([])
+const hotListSemester = ref([])
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
+
+const currentHotList = computed(() => {
+  switch (hotTab.value) {
+    case '7d': return hotList7d.value
+    case '30d': return hotList30d.value
+    case 'semester': return hotListSemester.value
+    default: return []
+  }
+})
 
 let requestSeq = 0
 
@@ -360,7 +380,10 @@ const loadMaterials = async () => {
 const loadHotMaterials = async () => {
   try {
     const res = await getHotMaterials()
-    hotList.value = (res.data || []).slice(0, 5)
+    const data = res.data || {}
+    hotList7d.value = (data.hot7d || []).slice(0, 5)
+    hotList30d.value = (data.hot30d || []).slice(0, 5)
+    hotListSemester.value = (data.hotSemester || []).slice(0, 5)
   } catch (e) {
     console.error('加载热门资料失败', e)
   }
@@ -767,6 +790,21 @@ onUnmounted(() => {
   border-radius: 8px;
 }
 
+.hot-tabs {
+  margin-bottom: 8px;
+}
+
+.hot-tabs :deep(.el-tabs__header) {
+  margin-bottom: 12px;
+}
+
+.hot-tabs :deep(.el-tabs__item) {
+  font-size: 13px;
+  padding: 0 10px;
+  height: 36px;
+  line-height: 36px;
+}
+
 .card-header-title {
   display: flex;
   align-items: center;
@@ -778,6 +816,14 @@ onUnmounted(() => {
 .hot-list {
   max-height: 500px;
   overflow-y: auto;
+}
+
+.hot-empty {
+  padding: 20px 0;
+}
+
+.hot-empty :deep(.el-empty__description) {
+  font-size: 12px;
 }
 
 .hot-item {

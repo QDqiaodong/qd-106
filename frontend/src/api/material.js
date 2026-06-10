@@ -96,10 +96,11 @@ export function getMyFavorites(params) {
   })
 }
 
-export function getHotMaterials() {
+export function getHotMaterials(range) {
   return request({
     url: '/materials/hot',
-    method: 'get'
+    method: 'get',
+    params: range ? { range } : {}
   })
 }
 

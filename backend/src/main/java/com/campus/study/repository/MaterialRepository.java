@@ -31,6 +31,8 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     List<Material> findTop10ByStatusOrderByViewCountDesc(Integer status);
 
+    List<Material> findByStatus(Integer status);
+
     @Modifying
     @Query("UPDATE Material m SET m.viewCount = m.viewCount + 1 WHERE m.id = :id")
     void incrementViewCount(@Param("id") Long id);

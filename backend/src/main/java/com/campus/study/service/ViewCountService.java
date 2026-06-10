@@ -18,12 +18,14 @@ public class ViewCountService {
 
     private static final String VIEW_UNIQUE_KEY_PREFIX = "view:unique:";
     private static final String VIEW_COUNT_KEY_PREFIX = "view:count:";
+    private static final String VIEW_DAILY_KEY_PREFIX = "view:daily:";
     private static final String IP_RATE_LIMIT_KEY_PREFIX = "view:rate:ip:";
     private static final String IP_BLOCK_KEY_PREFIX = "view:block:ip:";
     private static final String ABNORMAL_LOG_KEY_PREFIX = "view:abnormal:";
     private static final String DIRTY_MATERIALS_KEY = "view:dirty:materials";
 
     private static final long VIEW_UNIQUE_EXPIRE_HOURS = 24;
+    private static final long VIEW_DAILY_EXPIRE_DAYS = 180;
     private static final long RATE_LIMIT_WINDOW_SECONDS = 60;
     private static final int RATE_LIMIT_MAX_REQUESTS = 100;
     private static final long IP_BLOCK_DURATION_MINUTES = 30;
@@ -75,6 +77,31 @@ public class ViewCountService {
         String key = VIEW_COUNT_KEY_PREFIX + materialId;
         redisTemplate.opsForValue().increment(key, 1);
         redisTemplate.opsForSet().add(DIRTY_MATERIALS_KEY, materialId);
+
+        String dailyKey = VIEW_DAILY_KEY_PREFIX + java.time.LocalDate.now().toString();
+        redisTemplate.opsForZSet().incrementScore(dailyKey, String.valueOf(materialId), 1);
+        redisTemplate.expire(dailyKey, VIEW_DAILY_EXPIRE_DAYS, TimeUnit.DAYS);
+    }
+
+    public java.util.Map<Long, Integer> getViewCountsInDateRange(java.time.LocalDate startDate, java.time.LocalDate endDate) {
+        java.util.Map<Long, Integer> result = new java.util.HashMap<>();
+        java.time.LocalDate date = startDate;
+        while (!date.isAfter(endDate)) {
+            String dailyKey = VIEW_DAILY_KEY_PREFIX + date.toString();
+            var zSetEntries = redisTemplate.opsForZSet().rangeWithScores(dailyKey, 0, -1);
+            if (zSetEntries != null) {
+                for (var entry : zSetEntries) {
+                    try {
+                        Long materialId = Long.valueOf(String.valueOf(entry.getValue()));
+                        int score = entry.getScore() != null ? entry.getScore().intValue() : 0;
+                        result.merge(materialId, score, Integer::sum);
+                    } catch (NumberFormatException ignored) {
+                    }
+                }
+            }
+            date = date.plusDays(1);
+        }
+        return result;
     }
 
     private boolean checkRateLimit(String ip, Long materialId) {

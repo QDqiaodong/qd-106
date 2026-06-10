@@ -11,13 +11,23 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.Month;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Service
 public class MaterialService {
 
     private static final String HOT_MATERIALS_CACHE_KEY = "material:hot";
+    private static final String HOT_MATERIALS_7D_CACHE_KEY = "material:hot:7d";
+    private static final String HOT_MATERIALS_30D_CACHE_KEY = "material:hot:30d";
+    private static final String HOT_MATERIALS_SEMESTER_CACHE_KEY = "material:hot:semester";
     private static final String SEARCH_HISTORY_KEY_PREFIX = "material:search:";
     private static final long HOT_CACHE_TIMEOUT = 10;
     private static final long SEARCH_CACHE_TIMEOUT = 5;
@@ -90,12 +100,130 @@ public class MaterialService {
         return hotList;
     }
 
+    public Map<String, Object> getAllHotMaterials() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("hot7d", getHotMaterials7Days());
+        result.put("hot30d", getHotMaterials30Days());
+        result.put("hotSemester", getHotMaterialsSemester());
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Material> getHotMaterials7Days() {
+        List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_7D_CACHE_KEY);
+        if (cachedList != null) {
+            return cachedList;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(6);
+        List<Material> hotList = getHotMaterialsInRange(startDate, today, 10);
+        redisTemplate.opsForValue().set(HOT_MATERIALS_7D_CACHE_KEY, hotList, HOT_CACHE_TIMEOUT, TimeUnit.MINUTES);
+        return hotList;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Material> getHotMaterials30Days() {
+        List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_30D_CACHE_KEY);
+        if (cachedList != null) {
+            return cachedList;
+        }
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(29);
+        List<Material> hotList = getHotMaterialsInRange(startDate, today, 10);
+        redisTemplate.opsForValue().set(HOT_MATERIALS_30D_CACHE_KEY, hotList, HOT_CACHE_TIMEOUT, TimeUnit.MINUTES);
+        return hotList;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Material> getHotMaterialsSemester() {
+        List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_SEMESTER_CACHE_KEY);
+        if (cachedList != null) {
+            return cachedList;
+        }
+        LocalDate[] semesterRange = getSemesterDateRange();
+        List<Material> hotList = getHotMaterialsInRange(semesterRange[0], semesterRange[1], 10);
+        redisTemplate.opsForValue().set(HOT_MATERIALS_SEMESTER_CACHE_KEY, hotList, HOT_CACHE_TIMEOUT, TimeUnit.MINUTES);
+        return hotList;
+    }
+
+    private List<Material> getHotMaterialsInRange(LocalDate startDate, LocalDate endDate, int limit) {
+        Map<Long, Integer> rangeViewCounts = viewCountService.getViewCountsInDateRange(startDate, endDate);
+
+        List<Material> allMaterials = materialRepository.findByStatus(1);
+        Map<Long, Material> materialMap = allMaterials.stream()
+                .collect(Collectors.toMap(Material::getId, m -> {
+                    Material copy = new Material();
+                    copy.setId(m.getId());
+                    copy.setTitle(m.getTitle());
+                    copy.setDescription(m.getDescription());
+                    copy.setCover(m.getCover());
+                    copy.setCategoryId(m.getCategoryId());
+                    copy.setGradeId(m.getGradeId());
+                    copy.setSubjectId(m.getSubjectId());
+                    copy.setFileUrl(m.getFileUrl());
+                    copy.setFileSize(m.getFileSize());
+                    copy.setDownloadCount(m.getDownloadCount());
+                    copy.setViewCount(0);
+                    copy.setUserId(m.getUserId());
+                    copy.setStatus(m.getStatus());
+                    copy.setCreatedAt(m.getCreatedAt());
+                    copy.setUpdatedAt(m.getUpdatedAt());
+                    return copy;
+                }));
+
+        for (Map.Entry<Long, Integer> entry : rangeViewCounts.entrySet()) {
+            Material mat = materialMap.get(entry.getKey());
+            if (mat != null) {
+                mat.setViewCount(entry.getValue());
+            }
+        }
+
+        List<Material> resultList = new ArrayList<>(materialMap.values());
+        resultList.sort(Comparator.comparingInt(Material::getViewCount).reversed()
+                .thenComparing(Comparator.comparing(Material::getCreatedAt).reversed()));
+
+        if (resultList.size() > limit) {
+            resultList = resultList.subList(0, limit);
+        }
+
+        return resultList;
+    }
+
+    private LocalDate[] getSemesterDateRange() {
+        LocalDate today = LocalDate.now();
+        int year = today.getYear();
+        Month month = today.getMonth();
+
+        LocalDate startDate;
+        LocalDate endDate;
+
+        if (month.getValue() >= 2 && month.getValue() <= 7) {
+            startDate = LocalDate.of(year, Month.FEBRUARY, 1);
+            endDate = LocalDate.of(year, Month.JULY, 31);
+        } else if (month.getValue() >= 8) {
+            startDate = LocalDate.of(year, Month.AUGUST, 1);
+            endDate = LocalDate.of(year + 1, Month.JANUARY, 31);
+        } else {
+            startDate = LocalDate.of(year - 1, Month.AUGUST, 1);
+            endDate = LocalDate.of(year, Month.JANUARY, 31);
+        }
+
+        return new LocalDate[]{startDate, endDate};
+    }
+
     public boolean recordView(Long materialId, Long userId, String ip, String userAgent) {
         boolean isNewView = viewCountService.recordView(materialId, userId, ip, userAgent);
         if (isNewView) {
-            redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+            clearAllHotCaches();
         }
         return isNewView;
+    }
+
+    private void clearAllHotCaches() {
+        redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+        redisTemplate.delete(HOT_MATERIALS_7D_CACHE_KEY);
+        redisTemplate.delete(HOT_MATERIALS_30D_CACHE_KEY);
+        redisTemplate.delete(HOT_MATERIALS_SEMESTER_CACHE_KEY);
     }
 
     public Material getMaterialByIdWithViewCount(Long id) {
@@ -113,7 +241,7 @@ public class MaterialService {
         material.setViewCount(0);
         material.setDownloadCount(0);
         Material saved = materialRepository.save(material);
-        redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+        clearAllHotCaches();
         clearSearchCache();
         return saved;
     }
@@ -126,7 +254,7 @@ public class MaterialService {
             }
             material.setStatus(0);
             materialRepository.save(material);
-            redisTemplate.delete(HOT_MATERIALS_CACHE_KEY);
+            clearAllHotCaches();
             clearSearchCache();
             return true;
         }).orElse(false);

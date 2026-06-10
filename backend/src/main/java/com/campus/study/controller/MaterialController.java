@@ -150,9 +150,15 @@ public class MaterialController {
     }
 
     @GetMapping("/hot")
-    public Result<List<Material>> hot() {
-        List<Material> list = materialService.getHotMaterials();
-        return Result.success(list);
+    public Result<?> hot(@RequestParam(required = false) String range) {
+        if ("7d".equals(range)) {
+            return Result.success(materialService.getHotMaterials7Days());
+        } else if ("30d".equals(range)) {
+            return Result.success(materialService.getHotMaterials30Days());
+        } else if ("semester".equals(range)) {
+            return Result.success(materialService.getHotMaterialsSemester());
+        }
+        return Result.success(materialService.getAllHotMaterials());
     }
 
     @GetMapping("/my")

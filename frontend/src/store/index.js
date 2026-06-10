@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { favoriteMaterial, unfavoriteMaterial, getMyFavorites, DEFAULT_USER_ID } from '@/api/material'
 
 const VIEW_MODE_KEY = 'material_view_mode'
-const REVIEW_BASKET_KEY = 'review_basket'
 
 const getDefaultViewMode = () => {
   if (typeof window !== 'undefined') {
@@ -15,71 +14,17 @@ const getDefaultViewMode = () => {
   return 'grid'
 }
 
-const loadBasketFromStorage = () => {
-  if (typeof window !== 'undefined') {
-    try {
-      const saved = localStorage.getItem(REVIEW_BASKET_KEY)
-      return saved ? JSON.parse(saved) : []
-    } catch (e) {
-      return []
-    }
-  }
-  return []
-}
-
-const saveBasketToStorage = (list) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(REVIEW_BASKET_KEY, JSON.stringify(list))
-  }
-}
-
 export const useAppStore = defineStore('app', {
   state: () => ({
     count: 0,
     viewMode: getDefaultViewMode(),
     favoriteMap: {},
     favoriteCount: 0,
-    favoritesLoaded: false,
-    reviewBasket: loadBasketFromStorage()
+    favoritesLoaded: false
   }),
   getters: {
     isFavorite: (state) => (id) => {
       return !!state.favoriteMap[Number(id)]
-    },
-    isInBasket: (state) => (id) => {
-      return state.reviewBasket.some(item => Number(item.id) === Number(id))
-    },
-    basketCount: (state) => {
-      return state.reviewBasket.length
-    },
-    basketTotalSize: (state) => {
-      return state.reviewBasket.reduce((sum, item) => sum + (item.fileSize || 0), 0)
-    },
-    basketLastAddedTime: (state) => {
-      if (state.reviewBasket.length === 0) return null
-      const sorted = [...state.reviewBasket].sort((a, b) => {
-        return new Date(b.addedAt) - new Date(a.addedAt)
-      })
-      return sorted[0].addedAt
-    },
-    basketGroupedBySubject: (state) => {
-      const groups = {}
-      state.reviewBasket.forEach(item => {
-        const key = item.subjectId || 'unknown'
-        if (!groups[key]) {
-          groups[key] = {
-            subjectId: item.subjectId,
-            subjectName: item.subjectName || '未指定学科',
-            items: []
-          }
-        }
-        groups[key].items.push(item)
-      })
-      return Object.values(groups).sort((a, b) => {
-        if (a.subjectId === 'unknown') return 1
-        if (b.subjectId === 'unknown') return -1
-        return (a.subjectName || '').localeCompare(b.subjectName || '')
-      })
     }
   },
   actions: {
@@ -104,7 +49,7 @@ export const useAppStore = defineStore('app', {
       try {
         const res = await getMyFavorites({ page: 1, size: 1000 })
         const list = res.data?.list || []
-        const map = { ...this.favoriteMap }
+        const map = {}
         list.forEach(item => {
           map[Number(item.id)] = true
         })
@@ -160,45 +105,6 @@ export const useAppStore = defineStore('app', {
     },
     setFavoriteCount(count) {
       this.favoriteCount = count
-    },
-    addToBasket(material) {
-      const numericId = Number(material.id)
-      if (this.isInBasket(numericId)) {
-        return false
-      }
-      const item = {
-        id: numericId,
-        title: material.title,
-        description: material.description,
-        categoryId: material.categoryId,
-        categoryName: material.categoryName,
-        gradeId: material.gradeId,
-        gradeName: material.gradeName,
-        subjectId: material.subjectId,
-        subjectName: material.subjectName,
-        fileSize: material.fileSize || 0,
-        fileFormat: material.fileFormat || '',
-        fileUrl: material.fileUrl,
-        cover: material.cover,
-        addedAt: new Date().toISOString()
-      }
-      this.reviewBasket = [...this.reviewBasket, item]
-      saveBasketToStorage(this.reviewBasket)
-      return true
-    },
-    removeFromBasket(id) {
-      const numericId = Number(id)
-      const idx = this.reviewBasket.findIndex(item => Number(item.id) === numericId)
-      if (idx === -1) return false
-      const newList = [...this.reviewBasket]
-      newList.splice(idx, 1)
-      this.reviewBasket = newList
-      saveBasketToStorage(this.reviewBasket)
-      return true
-    },
-    clearBasket() {
-      this.reviewBasket = []
-      saveBasketToStorage(this.reviewBasket)
     }
   }
 })

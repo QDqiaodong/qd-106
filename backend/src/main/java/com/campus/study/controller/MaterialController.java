@@ -5,6 +5,7 @@ import com.campus.study.entity.Material;
 import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
 import com.campus.study.service.MaterialService;
+import com.campus.study.service.ReadingProgressService;
 import com.campus.study.util.FileUtil;
 import com.campus.study.util.IpUtil;
 import jakarta.annotation.Resource;
@@ -35,6 +36,9 @@ public class MaterialController {
 
     @Resource
     private FavoriteService favoriteService;
+
+    @Resource
+    private ReadingProgressService readingProgressService;
 
     @Resource
     private FileUtil fileUtil;
@@ -95,6 +99,7 @@ public class MaterialController {
         if (userId != null) {
             boolean favorited = favoriteService.isFavorite(userId, id);
             material.setFavorited(favorited);
+            material.setReadingProgress(readingProgressService.getProgress(userId, id));
         }
 
         return Result.success(material);
@@ -107,6 +112,7 @@ public class MaterialController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long gradeId,
             @RequestParam(required = false) Long subjectId,
+            @RequestParam(required = false) Integer totalPages,
             @RequestParam Long userId,
             @RequestParam(required = false) MultipartFile cover,
             @RequestParam MultipartFile file) {
@@ -117,6 +123,7 @@ public class MaterialController {
             material.setCategoryId(categoryId != null ? categoryId : 0L);
             material.setGradeId(gradeId != null ? gradeId : 0L);
             material.setSubjectId(subjectId != null ? subjectId : 0L);
+            material.setTotalPages(totalPages != null ? totalPages : 0);
 
             if (cover != null && !cover.isEmpty()) {
                 String coverUrl = fileUtil.uploadFile(cover, "covers");

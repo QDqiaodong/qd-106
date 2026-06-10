@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `material` (
   `subject_id` INT UNSIGNED DEFAULT 0 COMMENT '学科ID',
   `file_url` VARCHAR(255) DEFAULT '' COMMENT '文件地址',
   `file_size` BIGINT DEFAULT 0 COMMENT '文件大小',
+  `total_pages` INT DEFAULT 0 COMMENT '总页数',
   `download_count` INT DEFAULT 0 COMMENT '下载次数',
   `view_count` INT DEFAULT 0 COMMENT '浏览次数',
   `user_id` INT UNSIGNED DEFAULT 0 COMMENT '上传用户ID',
@@ -93,6 +94,20 @@ CREATE TABLE IF NOT EXISTS `bookmark` (
   PRIMARY KEY (`id`),
   KEY `idx_user_material` (`user_id`, `material_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='书签表';
+
+CREATE TABLE IF NOT EXISTS `reading_progress` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
+  `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `page_number` INT DEFAULT 1 COMMENT '当前阅读页码',
+  `last_read_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后阅读时间',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_material` (`user_id`, `material_id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_material` (`material_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='阅读进度表';
 
 INSERT IGNORE INTO `grade` (`id`, `name`, `sort`) VALUES
 (1, '一年级', 1),

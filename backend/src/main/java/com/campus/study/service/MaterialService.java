@@ -171,6 +171,7 @@ public class MaterialService {
                 copy.setSubjectId(mat.getSubjectId());
                 copy.setFileUrl(mat.getFileUrl());
                 copy.setFileSize(mat.getFileSize());
+                copy.setTotalPages(mat.getTotalPages());
                 copy.setDownloadCount(mat.getDownloadCount());
                 copy.setViewCount(entry.getValue());
                 copy.setUserId(mat.getUserId());

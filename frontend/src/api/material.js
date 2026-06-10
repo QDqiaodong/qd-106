@@ -184,3 +184,27 @@ export function deleteBookmark(materialId, id) {
     params: { userId: DEFAULT_USER_ID }
   })
 }
+
+export function getReadingProgress(materialId) {
+  return request({
+    url: `/materials/${materialId}/progress`,
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
+export function saveReadingProgress(materialId, pageNumber) {
+  return request({
+    url: `/materials/${materialId}/progress`,
+    method: 'post',
+    params: { userId: DEFAULT_USER_ID, pageNumber }
+  })
+}
+
+export function deleteReadingProgress(materialId) {
+  return request({
+    url: `/materials/${materialId}/progress`,
+    method: 'delete',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}

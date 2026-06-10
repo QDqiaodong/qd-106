@@ -40,6 +40,9 @@ public class Material {
     @Column(name = "file_size")
     private Long fileSize = 0L;
 
+    @Column(name = "total_pages")
+    private Integer totalPages = 0;
+
     @Column(name = "download_count")
     private Integer downloadCount = 0;
 
@@ -62,4 +65,7 @@ public class Material {
 
     @Transient
     private Boolean favorited = false;
+
+    @Transient
+    private Object readingProgress;
 }

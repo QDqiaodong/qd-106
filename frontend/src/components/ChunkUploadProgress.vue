@@ -38,7 +38,7 @@
       </div>
       <div class="stat-item">
         <el-icon :size="16" color="#909399"><Files /></el-icon>
-        <span class="stat-label">分片进度</span>
+        <span class="stat-label">已完成分片</span>
         <span class="stat-value">{{ completedCount }} / {{ totalChunks }}</span>
       </div>
     </div>

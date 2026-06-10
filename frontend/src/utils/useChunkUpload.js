@@ -29,11 +29,13 @@ export function useChunkUpload() {
   const failedChunks = ref([])
   const uploadingChunkIndices = ref(new Set())
 
-  let startTimestamp = 0
-  let lastUploadedSize = 0
   let speedTimer = null
   let uploadAbortController = null
   let isPaused = false
+  let lastSpeedTimestamp = 0
+  let lastSpeedUploadedSize = 0
+  let smoothedSpeed = 0
+  const SPEED_SMOOTHING_FACTOR = 0.3
 
   const progress = computed(() => {
     if (fileSize.value === 0) return 0
@@ -85,18 +87,30 @@ export function useChunkUpload() {
 
   const startSpeedMonitor = () => {
     stopSpeedMonitor()
-    startTimestamp = Date.now()
-    lastUploadedSize = uploadedSize.value
+    lastSpeedTimestamp = Date.now()
+    lastSpeedUploadedSize = uploadedSize.value
+    smoothedSpeed = 0
     speedTimer = setInterval(() => {
-      const elapsed = (Date.now() - startTimestamp) / 1000
-      const uploaded = uploadedSize.value - lastUploadedSize
-      if (elapsed > 0) {
-        const currentSpeed = uploadedSize.value / elapsed
-        speed.value = currentSpeed
-        if (currentSpeed > 0) {
-          remainingTime.value = (fileSize.value - uploadedSize.value) / currentSpeed
+      const now = Date.now()
+      const deltaTime = (now - lastSpeedTimestamp) / 1000
+      const deltaUploaded = uploadedSize.value - lastSpeedUploadedSize
+
+      if (deltaTime > 0) {
+        const instantSpeed = deltaUploaded / deltaTime
+        if (smoothedSpeed === 0) {
+          smoothedSpeed = instantSpeed
+        } else {
+          smoothedSpeed = SPEED_SMOOTHING_FACTOR * instantSpeed + (1 - SPEED_SMOOTHING_FACTOR) * smoothedSpeed
+        }
+        speed.value = smoothedSpeed
+
+        if (smoothedSpeed > 0) {
+          remainingTime.value = (fileSize.value - uploadedSize.value) / smoothedSpeed
         }
       }
+
+      lastSpeedTimestamp = now
+      lastSpeedUploadedSize = uploadedSize.value
     }, 1000)
   }
 
@@ -397,6 +411,9 @@ export function useChunkUpload() {
     failedChunks.value = []
     uploadingChunkIndices.value.clear()
     isPaused = false
+    lastSpeedTimestamp = 0
+    lastSpeedUploadedSize = 0
+    smoothedSpeed = 0
   }
 
   return {

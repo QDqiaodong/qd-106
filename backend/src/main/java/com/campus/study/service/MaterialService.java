@@ -149,36 +149,38 @@ public class MaterialService {
     private List<Material> getHotMaterialsInRange(LocalDate startDate, LocalDate endDate, int limit) {
         Map<Long, Integer> rangeViewCounts = viewCountService.getViewCountsInDateRange(startDate, endDate);
 
+        if (rangeViewCounts.isEmpty()) {
+            return new ArrayList<>();
+        }
+
         List<Material> allMaterials = materialRepository.findByStatus(1);
         Map<Long, Material> materialMap = allMaterials.stream()
-                .collect(Collectors.toMap(Material::getId, m -> {
-                    Material copy = new Material();
-                    copy.setId(m.getId());
-                    copy.setTitle(m.getTitle());
-                    copy.setDescription(m.getDescription());
-                    copy.setCover(m.getCover());
-                    copy.setCategoryId(m.getCategoryId());
-                    copy.setGradeId(m.getGradeId());
-                    copy.setSubjectId(m.getSubjectId());
-                    copy.setFileUrl(m.getFileUrl());
-                    copy.setFileSize(m.getFileSize());
-                    copy.setDownloadCount(m.getDownloadCount());
-                    copy.setViewCount(0);
-                    copy.setUserId(m.getUserId());
-                    copy.setStatus(m.getStatus());
-                    copy.setCreatedAt(m.getCreatedAt());
-                    copy.setUpdatedAt(m.getUpdatedAt());
-                    return copy;
-                }));
+                .collect(Collectors.toMap(Material::getId, m -> m));
 
+        List<Material> resultList = new ArrayList<>();
         for (Map.Entry<Long, Integer> entry : rangeViewCounts.entrySet()) {
             Material mat = materialMap.get(entry.getKey());
-            if (mat != null) {
-                mat.setViewCount(entry.getValue());
+            if (mat != null && entry.getValue() != null && entry.getValue() > 0) {
+                Material copy = new Material();
+                copy.setId(mat.getId());
+                copy.setTitle(mat.getTitle());
+                copy.setDescription(mat.getDescription());
+                copy.setCover(mat.getCover());
+                copy.setCategoryId(mat.getCategoryId());
+                copy.setGradeId(mat.getGradeId());
+                copy.setSubjectId(mat.getSubjectId());
+                copy.setFileUrl(mat.getFileUrl());
+                copy.setFileSize(mat.getFileSize());
+                copy.setDownloadCount(mat.getDownloadCount());
+                copy.setViewCount(entry.getValue());
+                copy.setUserId(mat.getUserId());
+                copy.setStatus(mat.getStatus());
+                copy.setCreatedAt(mat.getCreatedAt());
+                copy.setUpdatedAt(mat.getUpdatedAt());
+                resultList.add(copy);
             }
         }
 
-        List<Material> resultList = new ArrayList<>(materialMap.values());
         resultList.sort(Comparator.comparingInt(Material::getViewCount).reversed()
                 .thenComparing(Comparator.comparing(Material::getCreatedAt).reversed()));
 

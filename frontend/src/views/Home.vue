@@ -380,11 +380,11 @@ const selectedSubject = ref(null)
 const currentPage = ref(1)
 const pageSize = ref(appStore.viewMode === 'grid' ? GRID_DEFAULT_SIZE : LIST_DEFAULT_SIZE)
 const total = ref(0)
-const materialList = ref([])
+const rawMaterialList = ref([])
 const hotTab = ref('7d')
-const hotList7d = ref([])
-const hotList30d = ref([])
-const hotListSemester = ref([])
+const rawHotList7d = ref([])
+const rawHotList30d = ref([])
+const rawHotListSemester = ref([])
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
@@ -392,6 +392,12 @@ const subjects = ref([])
 const filterSnapshots = ref([])
 const saveDialogVisible = ref(false)
 const snapshotName = ref('')
+
+const materialList = computed(() => rawMaterialList.value.map(item => appStore.getEnrichedMaterial(item)))
+
+const hotList7d = computed(() => rawHotList7d.value.map(item => appStore.getEnrichedMaterial(item)))
+const hotList30d = computed(() => rawHotList30d.value.map(item => appStore.getEnrichedMaterial(item)))
+const hotListSemester = computed(() => rawHotListSemester.value.map(item => appStore.getEnrichedMaterial(item)))
 
 const currentHotList = computed(() => {
   switch (hotTab.value) {
@@ -466,10 +472,12 @@ const loadMaterials = async () => {
     if (seq !== requestSeq) {
       return
     }
-    materialList.value = res.data?.list || []
+    rawMaterialList.value = res.data?.list || []
     total.value = res.data?.total || 0
     
-    materialList.value.forEach(item => {
+    appStore.batchSetMaterialStats(rawMaterialList.value)
+    
+    rawMaterialList.value.forEach(item => {
       if (item.favorited !== undefined) {
         appStore.setFavorite(item.id, item.favorited)
       }
@@ -486,9 +494,12 @@ const loadHotMaterials = async () => {
   try {
     const res = await getHotMaterials()
     const data = res.data || {}
-    hotList7d.value = (data.hot7d || []).slice(0, 5)
-    hotList30d.value = (data.hot30d || []).slice(0, 5)
-    hotListSemester.value = (data.hotSemester || []).slice(0, 5)
+    rawHotList7d.value = (data.hot7d || []).slice(0, 5)
+    rawHotList30d.value = (data.hot30d || []).slice(0, 5)
+    rawHotListSemester.value = (data.hotSemester || []).slice(0, 5)
+    appStore.batchSetMaterialStats(rawHotList7d.value)
+    appStore.batchSetMaterialStats(rawHotList30d.value)
+    appStore.batchSetMaterialStats(rawHotListSemester.value)
   } catch (e) {
     console.error('加载热门资料失败', e)
   }

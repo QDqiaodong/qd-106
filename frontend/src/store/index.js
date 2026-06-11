@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { favoriteMaterial, unfavoriteMaterial, getMyFavorites, DEFAULT_USER_ID } from '@/api/material'
+import { favoriteMaterial, unfavoriteMaterial, getMyFavorites, DEFAULT_USER_ID, recordDownload } from '@/api/material'
 
 const VIEW_MODE_KEY = 'material_view_mode'
 const BASKET_KEY = 'material_review_basket'
@@ -40,7 +40,8 @@ export const useAppStore = defineStore('app', {
     favoriteMap: {},
     favoriteCount: 0,
     favoritesLoaded: false,
-    reviewBasket: getDefaultBasket()
+    reviewBasket: getDefaultBasket(),
+    materialStats: {}
   }),
   getters: {
     isFavorite: (state) => (id) => {
@@ -76,6 +77,25 @@ export const useAppStore = defineStore('app', {
         groups[key].items.push(item)
       })
       return Object.values(groups)
+    },
+    getMaterialDownloadCount: (state) => (id) => {
+      const numericId = Number(id)
+      return state.materialStats[numericId]?.downloadCount ?? null
+    },
+    getMaterialViewCount: (state) => (id) => {
+      const numericId = Number(id)
+      return state.materialStats[numericId]?.viewCount ?? null
+    },
+    getEnrichedMaterial: (state) => (material) => {
+      if (!material) return material
+      const numericId = Number(material.id)
+      const stats = state.materialStats[numericId]
+      if (!stats) return material
+      return {
+        ...material,
+        downloadCount: stats.downloadCount !== undefined ? stats.downloadCount : material.downloadCount,
+        viewCount: stats.viewCount !== undefined ? stats.viewCount : material.viewCount
+      }
     }
   },
   actions: {
@@ -185,6 +205,95 @@ export const useAppStore = defineStore('app', {
     },
     getBasketList() {
       return this.reviewBasket
+    },
+    setMaterialStats(material) {
+      if (!material || material.id === undefined || material.id === null) return
+      const numericId = Number(material.id)
+      const existing = this.materialStats[numericId] || {}
+      this.materialStats = {
+        ...this.materialStats,
+        [numericId]: {
+          viewCount: material.viewCount !== undefined ? material.viewCount : existing.viewCount,
+          downloadCount: material.downloadCount !== undefined ? material.downloadCount : existing.downloadCount
+        }
+      }
+    },
+    batchSetMaterialStats(list) {
+      if (!Array.isArray(list) || list.length === 0) return
+      const newStats = { ...this.materialStats }
+      list.forEach(item => {
+        if (item && item.id !== undefined && item.id !== null) {
+          const numericId = Number(item.id)
+          const existing = newStats[numericId] || {}
+          newStats[numericId] = {
+            viewCount: item.viewCount !== undefined ? item.viewCount : existing.viewCount,
+            downloadCount: item.downloadCount !== undefined ? item.downloadCount : existing.downloadCount
+          }
+        }
+      })
+      this.materialStats = newStats
+    },
+    setMaterialDownloadCount(id, count) {
+      const numericId = Number(id)
+      const existing = this.materialStats[numericId] || {}
+      this.materialStats = {
+        ...this.materialStats,
+        [numericId]: {
+          ...existing,
+          downloadCount: count
+        }
+      }
+    },
+    setMaterialViewCount(id, count) {
+      const numericId = Number(id)
+      const existing = this.materialStats[numericId] || {}
+      this.materialStats = {
+        ...this.materialStats,
+        [numericId]: {
+          ...existing,
+          viewCount: count
+        }
+      }
+    },
+    incrementDownloadCount(id) {
+      const numericId = Number(id)
+      const existing = this.materialStats[numericId] || { downloadCount: 0, viewCount: 0 }
+      const currentDownload = existing.downloadCount ?? 0
+      this.materialStats = {
+        ...this.materialStats,
+        [numericId]: {
+          ...existing,
+          downloadCount: currentDownload + 1
+        }
+      }
+      return currentDownload + 1
+    },
+    incrementViewCount(id) {
+      const numericId = Number(id)
+      const existing = this.materialStats[numericId] || { downloadCount: 0, viewCount: 0 }
+      const currentView = existing.viewCount ?? 0
+      this.materialStats = {
+        ...this.materialStats,
+        [numericId]: {
+          ...existing,
+          viewCount: currentView + 1
+        }
+      }
+      return currentView + 1
+    },
+    async doRecordDownload(id) {
+      const numericId = Number(id)
+      try {
+        const res = await recordDownload(numericId)
+        const serverCount = res.data?.downloadCount
+        if (serverCount !== undefined && serverCount !== null) {
+          this.setMaterialDownloadCount(numericId, serverCount)
+          return serverCount
+        }
+        return this.incrementDownloadCount(numericId)
+      } catch (e) {
+        return this.incrementDownloadCount(numericId)
+      }
     }
   }
 })

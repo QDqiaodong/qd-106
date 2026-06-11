@@ -321,4 +321,17 @@ public class MaterialService {
             redisTemplate.delete(keys);
         }
     }
+
+    @Transactional
+    public int recordDownload(Long id) {
+        Material material = materialRepository.findById(id).orElse(null);
+        if (material == null) {
+            return -1;
+        }
+        material.setDownloadCount(material.getDownloadCount() + 1);
+        materialRepository.save(material);
+        clearAllHotCaches();
+        clearSearchCache();
+        return material.getDownloadCount();
+    }
 }

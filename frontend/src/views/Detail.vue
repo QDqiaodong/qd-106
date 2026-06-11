@@ -347,7 +347,7 @@ const route = useRoute()
 const appStore = useAppStore()
 const materialId = computed(() => Number(route.params.id))
 
-const detail = ref({})
+const rawDetail = ref({})
 const previewUrl = ref('')
 const loading = ref(false)
 const categories = ref([])
@@ -357,6 +357,8 @@ const subjects = ref([])
 const categoryMap = ref({})
 const gradeMap = ref({})
 const subjectMap = ref({})
+
+const detail = computed(() => appStore.getEnrichedMaterial(rawDetail.value))
 
 const isFavorited = computed(() => appStore.isFavorite(materialId.value))
 const isInBasket = computed(() => appStore.isInBasket(materialId.value))
@@ -415,19 +417,21 @@ const loadDetail = async () => {
   loading.value = true
   try {
     const res = await getMaterialDetail(materialId.value)
-    detail.value = res.data || {}
+    rawDetail.value = res.data || {}
     
-    if (detail.value.favorited !== undefined) {
-      appStore.setFavorite(materialId.value, detail.value.favorited)
+    appStore.setMaterialStats(rawDetail.value)
+    
+    if (rawDetail.value.favorited !== undefined) {
+      appStore.setFavorite(materialId.value, rawDetail.value.favorited)
     }
     
-    if (detail.value.readingProgress) {
-      readingProgress.value = detail.value.readingProgress
-      currentPage.value = detail.value.readingProgress.pageNumber || 1
+    if (rawDetail.value.readingProgress) {
+      readingProgress.value = rawDetail.value.readingProgress
+      currentPage.value = rawDetail.value.readingProgress.pageNumber || 1
     }
     
-    if (detail.value.fileUrl) {
-      previewUrl.value = detail.value.fileUrl
+    if (rawDetail.value.fileUrl) {
+      previewUrl.value = rawDetail.value.fileUrl
     }
   } catch (e) {
     console.error('加载详情失败', e)
@@ -460,12 +464,16 @@ const handleFavorite = async () => {
   }
 }
 
-const handleDownload = () => {
-  if (detail.value.fileUrl) {
-    window.open(detail.value.fileUrl, '_blank')
-  } else {
+const handleDownload = async () => {
+  if (!rawDetail.value.fileUrl) {
     ElMessage.warning('该资料暂无可下载文件')
+    return
   }
+  const newCount = await appStore.doRecordDownload(materialId.value)
+  if (newCount !== undefined && newCount !== null) {
+    rawDetail.value = { ...rawDetail.value, downloadCount: newCount }
+  }
+  window.open(rawDetail.value.fileUrl, '_blank')
 }
 
 const handleToggleBasket = () => {

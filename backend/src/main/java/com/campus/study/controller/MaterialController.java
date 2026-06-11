@@ -325,4 +325,23 @@ public class MaterialController {
     public Result<Map<String, Object>> getValidationRules() {
         return Result.success(categoryValidationService.getValidationRules());
     }
+
+    @PostMapping("/{id}/download")
+    public Result<Map<String, Object>> recordDownload(@PathVariable Long id) {
+        Material material = materialService.getMaterialById(id);
+        if (material == null) {
+            return Result.error("资料不存在");
+        }
+        if (material.getStatus() != 1) {
+            return Result.error("资料已下架");
+        }
+        int newCount = materialService.recordDownload(id);
+        if (newCount < 0) {
+            return Result.error("下载统计失败");
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("downloadCount", newCount);
+        result.put("materialId", id);
+        return Result.success(result);
+    }
 }

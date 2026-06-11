@@ -448,17 +448,20 @@ const pageSize = ref(10)
 const uploadCount = ref(0)
 const favoriteCount = computed(() => appStore.favoriteCount)
 
-const uploadList = ref([])
+const rawUploadList = ref([])
 const uploadPage = ref(1)
 const uploadTotal = ref(0)
 const uploadGroupBy = ref('date')
 const expandedUploadGroups = ref({})
 const allUploadGroupsExpanded = ref(true)
 
-const favoriteList = ref([])
+const rawFavoriteList = ref([])
 const favoritePage = ref(1)
 const favoriteTotal = computed(() => appStore.favoriteCount)
 const activeReviewFilter = ref(-1)
+
+const uploadList = computed(() => rawUploadList.value.map(item => appStore.getEnrichedMaterial(item)))
+const favoriteList = computed(() => rawFavoriteList.value.map(item => appStore.getEnrichedMaterial(item)))
 
 const correctionList = ref([])
 const correctionPage = ref(1)
@@ -504,19 +507,21 @@ const loadUploads = async () => {
   loading.value = true
   try {
     const res = await getMyUploads({ page: uploadPage.value, size: pageSize.value })
-    uploadList.value = res.data?.list || []
+    rawUploadList.value = res.data?.list || []
     uploadTotal.value = res.data?.total || 0
     uploadCount.value = uploadTotal.value
     
+    appStore.batchSetMaterialStats(rawUploadList.value)
+    
     initUploadGroups()
     
-    if (uploadList.value.length === 0 && uploadPage.value > 1) {
+    if (rawUploadList.value.length === 0 && uploadPage.value > 1) {
       uploadPage.value--
       return loadUploads()
     }
   } catch (e) {
     console.error('加载我的上传失败', e)
-    uploadList.value = []
+    rawUploadList.value = []
     uploadTotal.value = 0
     uploadCount.value = 0
   } finally {
@@ -528,21 +533,23 @@ const loadFavorites = async () => {
   favLoading.value = true
   try {
     const res = await getMyFavorites({ page: favoritePage.value, size: pageSize.value })
-    favoriteList.value = res.data?.list || []
+    rawFavoriteList.value = res.data?.list || []
     const total = res.data?.total || 0
     appStore.setFavoriteCount(total)
+    
+    appStore.batchSetMaterialStats(rawFavoriteList.value)
 
     if (favoritePage.value === 1) {
       await appStore.loadFavorites(true)
     }
 
-    if (favoriteList.value.length === 0 && favoritePage.value > 1) {
+    if (rawFavoriteList.value.length === 0 && favoritePage.value > 1) {
       favoritePage.value--
       return loadFavorites()
     }
   } catch (e) {
     console.error('加载我的收藏失败', e)
-    favoriteList.value = []
+    rawFavoriteList.value = []
   } finally {
     favLoading.value = false
   }
@@ -704,10 +711,10 @@ const handleUnfavorite = async (id) => {
     )
     
     await appStore.doUnfavorite(id)
-    favoriteList.value = favoriteList.value.filter(item => item.id !== id)
+    rawFavoriteList.value = rawFavoriteList.value.filter(item => item.id !== id)
     ElMessage.success('已取消收藏')
     
-    if (favoriteList.value.length === 0 && favoritePage.value > 1) {
+    if (rawFavoriteList.value.length === 0 && favoritePage.value > 1) {
       favoritePage.value--
       loadFavorites()
     }

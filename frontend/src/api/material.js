@@ -311,3 +311,10 @@ export function getValidationRules() {
     method: 'get'
   })
 }
+
+export function recordDownload(id) {
+  return request({
+    url: `/materials/${id}/download`,
+    method: 'post'
+  })
+}

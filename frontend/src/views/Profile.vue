@@ -131,6 +131,109 @@
           </div>
         </el-tab-pane>
 
+        <el-tab-pane label="勘误管理" name="corrections">
+          <div class="list-container" v-loading="correctionLoading">
+            <div class="correction-toolbar">
+              <div class="toolbar-left">
+                <span class="toolbar-title">勘误管理中心</span>
+                <span class="toolbar-subtitle">处理用户提交的资料勘误反馈</span>
+              </div>
+            </div>
+
+            <div class="correction-stats">
+              <div
+                v-for="stat in correctionStats"
+                :key="stat.status"
+                class="correction-stat-card"
+                :class="{ active: activeCorrectionFilter === stat.status }"
+                @click="setCorrectionFilter(stat.status)"
+              >
+                <div class="stat-icon" :style="{ background: stat.bgColor }">
+                  <el-icon :size="20" :color="stat.iconColor">
+                    <component :is="stat.icon" />
+                  </el-icon>
+                </div>
+                <div class="stat-info">
+                  <div class="stat-number">{{ stat.count }}</div>
+                  <div class="stat-label">{{ stat.label }}</div>
+                </div>
+              </div>
+            </div>
+
+            <el-empty v-if="correctionList.length === 0" description="暂无勘误记录" />
+            <div v-else class="correction-sections">
+              <div
+                v-for="item in correctionList"
+                :key="item.id"
+                class="correction-card-item"
+              >
+                <div class="card-header">
+                  <div class="card-title" @click="goToDetail(item.materialId)">
+                    <el-icon :size="18" color="#409EFF"><Document /></el-icon>
+                    <span class="material-name">{{ item.materialTitle || '未知资料' }}</span>
+                  </div>
+                  <div class="card-status">
+                    <el-tag v-if="item.status === 0" type="warning" size="small">待处理</el-tag>
+                    <el-tag v-else-if="item.status === 1" type="success" size="small">已采纳</el-tag>
+                    <el-tag v-else type="info" size="small">已驳回</el-tag>
+                  </div>
+                </div>
+
+                <div class="card-body">
+                  <div class="card-meta">
+                    <span v-if="item.pageNumber" class="page-badge">第 {{ item.pageNumber }} 页</span>
+                    <span class="submitter">{{ item.submitterNickname || '匿名用户' }}</span>
+                    <span class="submit-time">{{ formatDateTime(item.createdAt) }}</span>
+                  </div>
+                  <div class="card-desc">
+                    <span class="label">错误说明：</span>
+                    <span class="content">{{ item.errorDescription }}</span>
+                  </div>
+                  <div v-if="item.correctionSuggestion" class="card-suggestion">
+                    <span class="label">修正建议：</span>
+                    <span class="content">{{ item.correctionSuggestion }}</span>
+                  </div>
+                  <div v-if="item.status !== 0" class="card-handle">
+                    <span class="label">{{ item.status === 1 ? '采纳说明：' : '驳回理由：' }}</span>
+                    <span class="content">{{ item.handleRemark || '无' }}</span>
+                    <span class="handle-time" v-if="item.handledAt">处理于 {{ formatDateTime(item.handledAt) }}</span>
+                  </div>
+                </div>
+
+                <div class="card-footer" v-if="item.status === 0">
+                  <el-button
+                    size="small"
+                    type="success"
+                    @click="openHandleDialog(item, 1)"
+                  >
+                    <el-icon><Check /></el-icon>
+                    采纳
+                  </el-button>
+                  <el-button
+                    size="small"
+                    type="danger"
+                    @click="openHandleDialog(item, 2)"
+                  >
+                    <el-icon><Close /></el-icon>
+                    驳回
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
+            <div class="pagination-wrapper" v-if="correctionTotal > correctionPageSize">
+              <el-pagination
+                v-model:current-page="correctionPage"
+                v-model:page-size="correctionPageSize"
+                :page-sizes="[5, 10, 20]"
+                :total="correctionTotal"
+                layout="total, prev, pager, next"
+                @current-change="handleCorrectionPageChange"
+              />
+            </div>
+          </div>
+        </el-tab-pane>
+
         <el-tab-pane label="我的收藏" name="favorites">
           <div class="list-container" v-loading="favLoading">
             <div class="favorite-toolbar">
@@ -284,6 +387,36 @@
         </el-tab-pane>
       </el-tabs>
     </el-card>
+
+    <el-dialog
+      v-model="showHandleDialog"
+      :title="handleType === 1 ? '采纳勘误' : '驳回勘误'"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-form :model="handleForm" label-width="90px">
+        <el-form-item label="处理备注">
+          <el-input
+            v-model="handleForm.handleRemark"
+            type="textarea"
+            :rows="3"
+            :placeholder="handleType === 1 ? '请输入采纳说明（选填）' : '请输入驳回理由（选填）'"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showHandleDialog = false">取消</el-button>
+        <el-button
+          :type="handleType === 1 ? 'success' : 'danger'"
+          @click="confirmHandleCorrection"
+          :loading="handlingCorrection"
+        >
+          {{ handleType === 1 ? '确认采纳' : '确认驳回' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -293,12 +426,14 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Upload, Star, StarFilled, Document, View, Download, Delete,
-  ArrowRight, Calendar, Collection, Check, Reading, Printer
+  ArrowRight, Calendar, Collection, Check, Reading, Printer,
+  Warning, Close
 } from '@element-plus/icons-vue'
 import {
   getMyUploads, getMyFavorites, deleteMaterial,
   getCategoryList, getGradeList, getSubjectList,
-  updateReviewStatus
+  updateReviewStatus,
+  getUploaderCorrections, getUploaderCorrectionStats, handleCorrection
 } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -324,6 +459,20 @@ const favoriteList = ref([])
 const favoritePage = ref(1)
 const favoriteTotal = computed(() => appStore.favoriteCount)
 const activeReviewFilter = ref(-1)
+
+const correctionList = ref([])
+const correctionPage = ref(1)
+const correctionPageSize = ref(10)
+const correctionTotal = ref(0)
+const correctionLoading = ref(false)
+const activeCorrectionFilter = ref(-1)
+const showHandleDialog = ref(false)
+const handlingCorrection = ref(false)
+const handleType = ref(1)
+const handleForm = ref({
+  correctionId: null,
+  handleRemark: ''
+})
 
 const categories = ref([])
 const grades = ref([])
@@ -422,11 +571,92 @@ const formatDateFull = (dateStr) => {
   return `${year}年${month}月${day}日`
 }
 
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  return dateStr.replace('T', ' ').substring(0, 16)
+}
+
+const correctionStats = computed(() => {
+  const rawStats = correctionList.value.reduce((acc, item) => {
+    const status = item.status || 0
+    acc[status] = (acc[status] || 0) + 1
+    return acc
+  }, {})
+  const total = correctionList.value.length
+  return [
+    { status: -1, label: '全部', icon: 'Document', bgColor: '#f0f2f5', iconColor: '#909399', count: total },
+    { status: 0, label: '待处理', icon: 'Warning', bgColor: '#fdf6ec', iconColor: '#E6A23C', count: rawStats[0] || 0 },
+    { status: 1, label: '已采纳', icon: 'Check', bgColor: '#f0f9eb', iconColor: '#67C23A', count: rawStats[1] || 0 },
+    { status: 2, label: '已驳回', icon: 'Close', bgColor: '#fef0f0', iconColor: '#F56C6C', count: rawStats[2] || 0 }
+  ]
+})
+
+const loadCorrections = async () => {
+  correctionLoading.value = true
+  try {
+    const status = activeCorrectionFilter.value >= 0 ? activeCorrectionFilter.value : undefined
+    const res = await getUploaderCorrections({
+      page: correctionPage.value,
+      size: correctionPageSize.value,
+      status
+    })
+    correctionList.value = res.data?.list || []
+    correctionTotal.value = res.data?.total || 0
+  } catch (e) {
+    console.error('加载勘误列表失败', e)
+    correctionList.value = []
+    correctionTotal.value = 0
+  } finally {
+    correctionLoading.value = false
+  }
+}
+
+const setCorrectionFilter = (status) => {
+  activeCorrectionFilter.value = activeCorrectionFilter.value === status ? -1 : status
+  correctionPage.value = 1
+  loadCorrections()
+}
+
+const handleCorrectionPageChange = (page) => {
+  correctionPage.value = page
+  loadCorrections()
+}
+
+const openHandleDialog = (item, type) => {
+  handleType.value = type
+  handleForm.value = {
+    correctionId: item.id,
+    handleRemark: ''
+  }
+  showHandleDialog.value = true
+}
+
+const confirmHandleCorrection = async () => {
+  if (!handleForm.value.correctionId) return
+
+  handlingCorrection.value = true
+  try {
+    await handleCorrection(handleForm.value.correctionId, handleType.value, handleForm.value.handleRemark)
+    ElMessage.success(handleType.value === 1 ? '已采纳' : '已驳回')
+    showHandleDialog.value = false
+    loadCorrections()
+  } catch (e) {
+    console.error('处理勘误失败', e)
+    ElMessage.error(e.response?.data?.message || '操作失败，请重试')
+  } finally {
+    handlingCorrection.value = false
+  }
+}
+
 const handleTabChange = (tab) => {
   if (tab === 'uploads') {
     loadUploads()
-  } else {
+  } else if (tab === 'favorites') {
     loadFavorites()
+  } else if (tab === 'corrections') {
+    correctionPage.value = 1
+    activeCorrectionFilter.value = -1
+    loadCorrections()
   }
 }
 
@@ -1093,6 +1323,164 @@ onMounted(() => {
   padding-top: 24px;
 }
 
+.correction-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.correction-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.correction-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.correction-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.correction-stat-card.active {
+  border-color: #F56C6C;
+  background: #fef0f0;
+}
+
+.correction-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.correction-card-item {
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.correction-card-item:hover {
+  border-color: #fbc4c4;
+  box-shadow: 0 2px 12px rgba(245, 108, 108, 0.08);
+}
+
+.correction-card-item .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #fef0f0 0%, #fff5f5 100%);
+  border-bottom: 1px solid #fde2e2;
+}
+
+.correction-card-item .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.correction-card-item .card-title:hover {
+  color: #409eff;
+}
+
+.correction-card-item .material-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.correction-card-item .card-body {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.correction-card-item .card-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.correction-card-item .card-meta .submitter {
+  font-size: 13px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.correction-card-item .card-meta .submit-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.correction-card-item .card-desc,
+.correction-card-item .card-suggestion,
+.correction-card-item .card-handle {
+  display: flex;
+  gap: 6px;
+  line-height: 1.6;
+}
+
+.correction-card-item .card-desc .label,
+.correction-card-item .card-suggestion .label,
+.correction-card-item .card-handle .label {
+  font-size: 13px;
+  color: #909399;
+  flex-shrink: 0;
+}
+
+.correction-card-item .card-desc .content,
+.correction-card-item .card-suggestion .content {
+  font-size: 14px;
+  color: #303133;
+  flex: 1;
+}
+
+.correction-card-item .card-handle {
+  padding-top: 10px;
+  border-top: 1px dashed #ebeef5;
+  flex-wrap: wrap;
+}
+
+.correction-card-item .card-handle .content {
+  font-size: 13px;
+  color: #67c23a;
+  flex: 1;
+}
+
+.correction-card-item .card-handle .handle-time {
+  font-size: 12px;
+  color: #c0c4cc;
+  margin-left: auto;
+}
+
+.correction-card-item .card-footer {
+  padding: 12px 20px;
+  background: #fafafa;
+  border-top: 1px solid #ebeef5;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 @media (max-width: 768px) {
   .list-item {
     flex-direction: column;
@@ -1125,15 +1513,34 @@ onMounted(() => {
     grid-template-columns: repeat(2, 1fr);
   }
   
+  .correction-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
   .review-buttons {
     justify-content: flex-start;
   }
   
   .upload-toolbar,
-  .favorite-toolbar {
+  .favorite-toolbar,
+  .correction-toolbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+  }
+
+  .correction-card-item .card-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .correction-card-item .card-footer {
+    justify-content: stretch;
+  }
+
+  .correction-card-item .card-footer .el-button {
+    flex: 1;
   }
 }
 </style>

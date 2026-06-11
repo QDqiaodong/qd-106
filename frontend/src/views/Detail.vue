@@ -216,6 +216,112 @@
           </el-button>
         </template>
       </el-dialog>
+
+      <el-card class="correction-card">
+        <template #header>
+          <div class="correction-header">
+            <div class="header-left">
+              <el-icon :size="18" color="#F56C6C"><Warning /></el-icon>
+              <span class="section-title">资料勘误</span>
+              <span class="correction-count">{{ correctionList.length }} 条</span>
+            </div>
+            <el-button type="danger" size="small" @click="showCorrectionDialog = true">
+              <el-icon><Edit /></el-icon>
+              提交勘误
+            </el-button>
+          </div>
+        </template>
+        <div class="correction-content" v-loading="correctionLoading">
+          <div v-if="correctionList.length === 0" class="correction-empty">
+            <el-icon :size="48" color="#c0c4cc"><DocumentDelete /></el-icon>
+            <p class="empty-text">暂无勘误记录</p>
+            <p class="empty-tip">发现资料有错误？点击右上角"提交勘误"帮助我们改进</p>
+          </div>
+          <div v-else class="correction-list">
+            <div
+              v-for="item in correctionList"
+              :key="item.id"
+              class="correction-item"
+            >
+              <div class="correction-status">
+                <el-tag v-if="item.status === 0" type="warning" size="small">待处理</el-tag>
+                <el-tag v-else-if="item.status === 1" type="success" size="small">已采纳</el-tag>
+                <el-tag v-else type="info" size="small">已驳回</el-tag>
+              </div>
+              <div class="correction-body">
+                <div class="correction-meta">
+                  <span v-if="item.pageNumber" class="page-badge">第 {{ item.pageNumber }} 页</span>
+                  <span class="submitter">{{ item.submitterNickname || '匿名用户' }}</span>
+                  <span class="submit-time">{{ formatDateTime(item.createdAt) }}</span>
+                </div>
+                <div class="correction-desc">
+                  <span class="label">错误说明：</span>
+                  <span class="content">{{ item.errorDescription }}</span>
+                </div>
+                <div v-if="item.correctionSuggestion" class="correction-suggestion">
+                  <span class="label">修正建议：</span>
+                  <span class="content">{{ item.correctionSuggestion }}</span>
+                </div>
+                <div v-if="item.status !== 0 && item.handleRemark" class="correction-handle">
+                  <span class="label">{{ item.status === 1 ? '采纳说明：' : '驳回理由：' }}</span>
+                  <span class="content">{{ item.handleRemark }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pagination-wrapper" v-if="correctionTotal > correctionPageSize">
+            <el-pagination
+              v-model:current-page="correctionPage"
+              v-model:page-size="correctionPageSize"
+              :page-sizes="[5, 10, 20]"
+              :total="correctionTotal"
+              layout="total, prev, pager, next"
+              @current-change="handleCorrectionPageChange"
+            />
+          </div>
+        </div>
+      </el-card>
+
+      <el-dialog v-model="showCorrectionDialog" title="提交勘误" width="520px" :close-on-click-modal="false">
+        <el-form :model="correctionForm" label-width="90px" ref="correctionFormRef">
+          <el-form-item label="错误页码" prop="pageNumber">
+            <el-input-number
+              v-model="correctionForm.pageNumber"
+              :min="1"
+              :max="99999"
+              placeholder="请输入错误所在页码"
+              style="width: 100%"
+              :controls="false"
+            />
+          </el-form-item>
+          <el-form-item label="错误说明" prop="errorDescription">
+            <el-input
+              v-model="correctionForm.errorDescription"
+              type="textarea"
+              :rows="3"
+              placeholder="请详细描述错误内容，如错别字、数据错误、内容缺失等"
+              maxlength="1000"
+              show-word-limit
+            />
+          </el-form-item>
+          <el-form-item label="修正建议" prop="correctionSuggestion">
+            <el-input
+              v-model="correctionForm.correctionSuggestion"
+              type="textarea"
+              :rows="3"
+              placeholder="请提供您认为正确的内容或修改建议（选填）"
+              maxlength="1000"
+              show-word-limit
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="showCorrectionDialog = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmitCorrection" :loading="submittingCorrection">
+            提交勘误
+          </el-button>
+        </template>
+      </el-dialog>
     </div>
   </div>
 </template>
@@ -227,12 +333,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document,
   Collection, Plus, Flag, Delete, Notebook, ShoppingCart, ShoppingCartFull,
-  VideoPlay, Files, Right
+  VideoPlay, Files, Right, Warning, Edit, DocumentDelete
 } from '@element-plus/icons-vue'
 import {
   getMaterialDetail, getCategoryList, getGradeList, getSubjectList,
   getBookmarks, addBookmark, deleteBookmark,
-  saveReadingProgress
+  saveReadingProgress,
+  submitCorrection, getCorrectionsByMaterial
 } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -267,6 +374,19 @@ const readingProgress = ref(null)
 const currentPage = ref(1)
 const savingProgress = ref(false)
 const progressSaveTimer = ref(null)
+
+const correctionList = ref([])
+const correctionLoading = ref(false)
+const correctionPage = ref(1)
+const correctionPageSize = ref(10)
+const correctionTotal = ref(0)
+const showCorrectionDialog = ref(false)
+const submittingCorrection = ref(false)
+const correctionForm = ref({
+  pageNumber: null,
+  errorDescription: '',
+  correctionSuggestion: ''
+})
 
 const iframeSrc = computed(() => {
   if (!previewUrl.value) return ''
@@ -329,6 +449,11 @@ const getSubjectName = (id) => subjectMap.value[id] || '未指定'
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   return dateStr.substring(0, 10)
+}
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  return dateStr.replace('T', ' ').substring(0, 16)
 }
 
 const handleFavorite = async () => {
@@ -456,11 +581,71 @@ const jumpToBookmark = (bookmark) => {
   }
 }
 
+const loadCorrections = async () => {
+  correctionLoading.value = true
+  try {
+    const res = await getCorrectionsByMaterial(materialId.value, {
+      page: correctionPage.value,
+      size: correctionPageSize.value
+    })
+    correctionList.value = res.data?.list || []
+    correctionTotal.value = res.data?.total || 0
+  } catch (e) {
+    console.error('加载勘误列表失败', e)
+  } finally {
+    correctionLoading.value = false
+  }
+}
+
+const handleCorrectionPageChange = (page) => {
+  correctionPage.value = page
+  loadCorrections()
+}
+
+const handleSubmitCorrection = async () => {
+  const form = correctionForm.value
+  if (!form.errorDescription || !form.errorDescription.trim()) {
+    ElMessage.warning('请填写错误说明')
+    return
+  }
+
+  submittingCorrection.value = true
+  try {
+    const data = {
+      materialId: materialId.value,
+      errorDescription: form.errorDescription.trim()
+    }
+    if (form.pageNumber && form.pageNumber > 0) {
+      data.pageNumber = form.pageNumber
+    }
+    if (form.correctionSuggestion && form.correctionSuggestion.trim()) {
+      data.correctionSuggestion = form.correctionSuggestion.trim()
+    }
+
+    await submitCorrection(data)
+    ElMessage.success('勘误提交成功，感谢您的反馈！')
+    showCorrectionDialog.value = false
+    correctionForm.value = {
+      pageNumber: null,
+      errorDescription: '',
+      correctionSuggestion: ''
+    }
+    correctionPage.value = 1
+    loadCorrections()
+  } catch (e) {
+    console.error('提交勘误失败', e)
+    ElMessage.error(e.response?.data?.message || '提交失败，请重试')
+  } finally {
+    submittingCorrection.value = false
+  }
+}
+
 onMounted(() => {
   syncFavoriteFromStore()
   loadDicts()
   loadDetail()
   loadBookmarks()
+  loadCorrections()
 })
 </script>
 
@@ -728,6 +913,123 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
+.correction-card {
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+}
+
+.correction-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.correction-count {
+  font-size: 13px;
+  color: #909399;
+  margin-left: 4px;
+}
+
+.correction-content {
+  min-height: 120px;
+}
+
+.correction-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 10px;
+}
+
+.correction-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.correction-item {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #ebeef5;
+  transition: all 0.2s ease;
+}
+
+.correction-item:hover {
+  background: #fff5f5;
+  border-color: #fbc4c4;
+}
+
+.correction-status {
+  margin-bottom: 10px;
+}
+
+.correction-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.correction-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.correction-meta .submitter {
+  font-size: 13px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.correction-meta .submit-time {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.correction-desc,
+.correction-suggestion,
+.correction-handle {
+  display: flex;
+  gap: 6px;
+  line-height: 1.6;
+}
+
+.correction-desc .label,
+.correction-suggestion .label,
+.correction-handle .label {
+  font-size: 13px;
+  color: #909399;
+  flex-shrink: 0;
+}
+
+.correction-desc .content,
+.correction-suggestion .content {
+  font-size: 14px;
+  color: #303133;
+  flex: 1;
+}
+
+.correction-handle {
+  padding-top: 8px;
+  border-top: 1px dashed #ebeef5;
+}
+
+.correction-handle .content {
+  font-size: 13px;
+  color: #67c23a;
+  flex: 1;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  padding-top: 20px;
+}
+
 @media (max-width: 768px) {
   .info-header {
     flex-direction: column;
@@ -764,6 +1066,20 @@ onMounted(() => {
   .bookmark-icon {
     width: 32px;
     height: 32px;
+  }
+
+  .correction-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .correction-header .el-button {
+    width: 100%;
+  }
+
+  .correction-meta {
+    gap: 6px;
   }
 }
 </style>

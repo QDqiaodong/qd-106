@@ -174,4 +174,24 @@ INSERT IGNORE INTO `material` (`id`, `title`, `description`, `category_id`, `gra
 (7, '七年级生物知识点思维导图', '以思维导图形式梳理七年级生物全部知识点，直观清晰，便于学生建立知识体系。', 5, 7, 6, 89, 41, 1, 1),
 (8, '高三历史二轮复习专题教案', '高三历史二轮复习全套教案，包含中国古代史、近代史、现代史及世界史专题模块。', 3, 12, 8, 167, 72, 1, 1);
 
+CREATE TABLE IF NOT EXISTS `correction` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `user_id` INT UNSIGNED NOT NULL COMMENT '提交用户ID',
+  `page_number` INT DEFAULT NULL COMMENT '错误页码',
+  `error_description` TEXT NOT NULL COMMENT '错误说明',
+  `correction_suggestion` TEXT COMMENT '修正建议',
+  `status` TINYINT DEFAULT 0 COMMENT '处理状态 0待处理 1已采纳 2已驳回',
+  `handler_id` INT UNSIGNED DEFAULT NULL COMMENT '处理人ID',
+  `handle_remark` VARCHAR(500) DEFAULT '' COMMENT '处理备注',
+  `handled_at` DATETIME DEFAULT NULL COMMENT '处理时间',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_material` (`material_id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_handler` (`handler_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='勘误表';
+
 SET FOREIGN_KEY_CHECKS = 1;

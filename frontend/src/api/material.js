@@ -256,3 +256,51 @@ export function deleteFilterSnapshot(id) {
     params: { userId: DEFAULT_USER_ID }
   })
 }
+
+export function submitCorrection(data) {
+  return request({
+    url: '/corrections',
+    method: 'post',
+    params: { userId: DEFAULT_USER_ID, ...data }
+  })
+}
+
+export function getCorrectionsByMaterial(materialId, params = {}) {
+  return request({
+    url: `/corrections/material/${materialId}`,
+    method: 'get',
+    params
+  })
+}
+
+export function getMyCorrections(params = {}) {
+  return request({
+    url: '/corrections/my',
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID, ...params }
+  })
+}
+
+export function getUploaderCorrections(params = {}) {
+  return request({
+    url: '/corrections/uploader',
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID, ...params }
+  })
+}
+
+export function getUploaderCorrectionStats() {
+  return request({
+    url: '/corrections/uploader/stats',
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
+export function handleCorrection(id, status, handleRemark = '') {
+  return request({
+    url: `/corrections/${id}/handle`,
+    method: 'put',
+    params: { userId: DEFAULT_USER_ID, status, handleRemark }
+  })
+}

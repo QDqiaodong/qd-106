@@ -29,6 +29,8 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
 
     Page<Material> findByUserId(Long userId, Pageable pageable);
 
+    List<Material> findByUserId(Long userId);
+
     List<Material> findTop10ByStatusOrderByViewCountDesc(Integer status);
 
     List<Material> findByStatus(Integer status);

@@ -1,8 +1,12 @@
 package com.campus.study.controller;
 
 import com.campus.study.entity.Material;
+import com.campus.study.service.CategoryValidationService;
+import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
 import com.campus.study.service.MaterialService;
+import com.campus.study.service.ReadingProgressService;
+import com.campus.study.util.FileUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -38,6 +42,18 @@ class MaterialControllerHotTest {
 
     @MockBean
     private FavoriteService favoriteService;
+
+    @MockBean
+    private ChunkUploadService chunkUploadService;
+
+    @MockBean
+    private ReadingProgressService readingProgressService;
+
+    @MockBean
+    private FileUtil fileUtil;
+
+    @MockBean
+    private CategoryValidationService categoryValidationService;
 
     private Material buildMaterial(Long id, String title, int viewCount) {
         Material material = new Material();

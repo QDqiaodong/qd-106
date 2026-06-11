@@ -83,6 +83,11 @@ public class ChunkUploadService {
             throw new IllegalArgumentException("上传任务不存在或已过期");
         }
 
+        String currentStatus = (String) uploadInfo.get("status");
+        if ("cancelled".equals(currentStatus)) {
+            throw new IllegalArgumentException("上传任务已取消");
+        }
+
         int totalChunks = (int) uploadInfo.get("totalChunks");
         if (chunkIndex < 0 || chunkIndex >= totalChunks) {
             throw new IllegalArgumentException("分片索引无效");
@@ -156,6 +161,17 @@ public class ChunkUploadService {
             throw new IllegalArgumentException("上传任务不存在或已过期");
         }
 
+        String currentStatus = (String) uploadInfo.get("status");
+        if ("cancelled".equals(currentStatus)) {
+            throw new IllegalArgumentException("上传任务已取消");
+        }
+        if ("merging".equals(currentStatus)) {
+            throw new IllegalArgumentException("上传任务正在合并中");
+        }
+
+        uploadInfo.put("status", "merging");
+        redisTemplate.opsForValue().set(key, uploadInfo, UPLOAD_EXPIRE_HOURS, TimeUnit.HOURS);
+
         String fileName = (String) uploadInfo.get("fileName");
         long fileSize = (long) uploadInfo.get("fileSize");
         int totalChunks = (int) uploadInfo.get("totalChunks");
@@ -215,8 +231,12 @@ public class ChunkUploadService {
             return false;
         }
 
-        uploadInfo.put("status", "cancelled");
-        redisTemplate.opsForValue().set(key, uploadInfo, UPLOAD_EXPIRE_HOURS, TimeUnit.HOURS);
+        String currentStatus = (String) uploadInfo.get("status");
+        if ("merging".equals(currentStatus) || "completed".equals(currentStatus)) {
+            return false;
+        }
+
+        redisTemplate.delete(key);
 
         deleteChunkDir(uploadId);
         return true;

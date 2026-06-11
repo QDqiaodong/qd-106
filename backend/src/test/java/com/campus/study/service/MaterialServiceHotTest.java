@@ -77,7 +77,6 @@ class MaterialServiceHotTest {
         @Test
         @DisplayName("[近7天榜] 时间窗口内无任何浏览量数据时，返回空列表")
         void testGetHot7dReturnsEmptyWhenNoRangeData() {
-            when(materialRepository.findByStatus(1)).thenReturn(buildAllMaterials());
             when(viewCountService.getViewCountsInDateRange(any(LocalDate.class), any(LocalDate.class)))
                     .thenReturn(new HashMap<>());
 
@@ -91,7 +90,6 @@ class MaterialServiceHotTest {
         @Test
         @DisplayName("[近30天榜] 时间窗口内无任何浏览量数据时，返回空列表")
         void testGetHot30dReturnsEmptyWhenNoRangeData() {
-            when(materialRepository.findByStatus(1)).thenReturn(buildAllMaterials());
             when(viewCountService.getViewCountsInDateRange(any(LocalDate.class), any(LocalDate.class)))
                     .thenReturn(new HashMap<>());
 
@@ -104,7 +102,6 @@ class MaterialServiceHotTest {
         @Test
         @DisplayName("[本学期榜] 时间窗口内无任何浏览量数据时，返回空列表")
         void testGetHotSemesterReturnsEmptyWhenNoRangeData() {
-            when(materialRepository.findByStatus(1)).thenReturn(buildAllMaterials());
             when(viewCountService.getViewCountsInDateRange(any(LocalDate.class), any(LocalDate.class)))
                     .thenReturn(new HashMap<>());
 
@@ -117,7 +114,6 @@ class MaterialServiceHotTest {
         @Test
         @DisplayName("[首页三Tab联动] getAllHotMaterials 返回的三个榜单均为空")
         void testGetAllHotMaterialsAllEmpty() {
-            when(materialRepository.findByStatus(1)).thenReturn(buildAllMaterials());
             when(viewCountService.getViewCountsInDateRange(any(LocalDate.class), any(LocalDate.class)))
                     .thenReturn(new HashMap<>());
 

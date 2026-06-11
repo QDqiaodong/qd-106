@@ -85,7 +85,12 @@ public class MaterialService {
     public List<Material> getHotMaterials() {
         List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_CACHE_KEY);
         if (cachedList != null) {
-            return cachedList;
+            List<Material> filtered = cachedList.stream()
+                    .filter(m -> m.getStatus() != null && m.getStatus() == 1)
+                    .collect(Collectors.toList());
+            if (filtered.size() == cachedList.size()) {
+                return filtered;
+            }
         }
         List<Material> hotList = materialRepository.findTop10ByStatusOrderByViewCountDesc(1);
         for (Material material : hotList) {
@@ -112,7 +117,12 @@ public class MaterialService {
     public List<Material> getHotMaterials7Days() {
         List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_7D_CACHE_KEY);
         if (cachedList != null) {
-            return cachedList;
+            List<Material> filtered = cachedList.stream()
+                    .filter(m -> m.getStatus() != null && m.getStatus() == 1)
+                    .collect(Collectors.toList());
+            if (filtered.size() == cachedList.size()) {
+                return filtered;
+            }
         }
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(6);
@@ -125,7 +135,12 @@ public class MaterialService {
     public List<Material> getHotMaterials30Days() {
         List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_30D_CACHE_KEY);
         if (cachedList != null) {
-            return cachedList;
+            List<Material> filtered = cachedList.stream()
+                    .filter(m -> m.getStatus() != null && m.getStatus() == 1)
+                    .collect(Collectors.toList());
+            if (filtered.size() == cachedList.size()) {
+                return filtered;
+            }
         }
         LocalDate today = LocalDate.now();
         LocalDate startDate = today.minusDays(29);
@@ -138,7 +153,12 @@ public class MaterialService {
     public List<Material> getHotMaterialsSemester() {
         List<Material> cachedList = (List<Material>) redisTemplate.opsForValue().get(HOT_MATERIALS_SEMESTER_CACHE_KEY);
         if (cachedList != null) {
-            return cachedList;
+            List<Material> filtered = cachedList.stream()
+                    .filter(m -> m.getStatus() != null && m.getStatus() == 1)
+                    .collect(Collectors.toList());
+            if (filtered.size() == cachedList.size()) {
+                return filtered;
+            }
         }
         LocalDate[] semesterRange = getSemesterDateRange();
         List<Material> hotList = getHotMaterialsInRange(semesterRange[0], semesterRange[1], 10);

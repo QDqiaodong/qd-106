@@ -2,6 +2,7 @@ package com.campus.study.controller;
 
 import com.campus.study.common.Result;
 import com.campus.study.entity.Material;
+import com.campus.study.service.CategoryValidationService;
 import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
 import com.campus.study.service.MaterialService;
@@ -46,6 +47,9 @@ public class MaterialController {
     @Resource
     private ChunkUploadService chunkUploadService;
 
+    @Resource
+    private CategoryValidationService categoryValidationService;
+
     @Value("${file.upload.path:/app/uploads}")
     private String uploadPath;
 
@@ -58,6 +62,11 @@ public class MaterialController {
             @RequestParam(required = false) Long gradeId,
             @RequestParam(required = false) Long subjectId,
             @RequestParam(required = false) Long userId) {
+        try {
+            categoryValidationService.validateFilter(gradeId, subjectId, categoryId);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        }
         Page<Material> materialPage = materialService.getMaterialPage(page, size, keyword, categoryId, gradeId, subjectId);
 
         List<Material> list = materialPage.getContent();
@@ -117,6 +126,7 @@ public class MaterialController {
             @RequestParam(required = false) MultipartFile cover,
             @RequestParam MultipartFile file) {
         try {
+            categoryValidationService.validateUpload(gradeId, subjectId, categoryId, title);
             Material material = new Material();
             material.setTitle(title);
             material.setDescription(description != null ? description : "");
@@ -291,6 +301,7 @@ public class MaterialController {
             @RequestParam(required = false) Long subjectId,
             @RequestParam Long userId) {
         try {
+            categoryValidationService.validateUpload(gradeId, subjectId, categoryId, title);
             Material material = chunkUploadService.mergeChunks(
                     uploadId, title, description, categoryId, gradeId, subjectId, userId);
             return Result.success("上传成功", material);
@@ -308,5 +319,10 @@ public class MaterialController {
             return Result.error("上传任务不存在或已过期");
         }
         return Result.success("已取消上传", null);
+    }
+
+    @GetMapping("/validation-rules")
+    public Result<Map<String, Object>> getValidationRules() {
+        return Result.success(categoryValidationService.getValidationRules());
     }
 }

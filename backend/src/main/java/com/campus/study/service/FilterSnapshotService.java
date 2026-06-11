@@ -14,12 +14,16 @@ public class FilterSnapshotService {
     @Resource
     private FilterSnapshotRepository filterSnapshotRepository;
 
+    @Resource
+    private CategoryValidationService categoryValidationService;
+
     public List<FilterSnapshot> getMySnapshots(Long userId) {
         return filterSnapshotRepository.findByUserIdOrderBySortAscCreatedAtDesc(userId);
     }
 
     public FilterSnapshot createSnapshot(Long userId, String name, String keyword,
                                          Long categoryId, Long gradeId, Long subjectId) {
+        categoryValidationService.validateFilter(gradeId, subjectId, categoryId);
         if (filterSnapshotRepository.existsByUserIdAndName(userId, name)) {
             throw new IllegalArgumentException("快照名称已存在，请更换名称");
         }
@@ -36,6 +40,7 @@ public class FilterSnapshotService {
 
     public FilterSnapshot updateSnapshot(Long id, Long userId, String name, String keyword,
                                          Long categoryId, Long gradeId, Long subjectId) {
+        categoryValidationService.validateFilter(gradeId, subjectId, categoryId);
         FilterSnapshot snapshot = filterSnapshotRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new IllegalArgumentException("快照不存在"));
         if (!snapshot.getName().equals(name) && filterSnapshotRepository.existsByUserIdAndName(userId, name)) {

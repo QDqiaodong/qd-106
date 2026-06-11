@@ -320,7 +320,7 @@ import {
   CircleClose,
   WarningFilled
 } from '@element-plus/icons-vue'
-import { getCategoryList, getGradeList, getSubjectList, DEFAULT_USER_ID } from '@/api/material'
+import { getCategoryList, getGradeList, getSubjectList, getValidationRules, DEFAULT_USER_ID } from '@/api/material'
 import { useChunkUpload } from '@/utils/useChunkUpload'
 import ChunkUploadProgress from '@/components/ChunkUploadProgress.vue'
 
@@ -494,6 +494,39 @@ const checkIssues = computed(() => {
       }
     }
   }
+
+  if (form.gradeId && form.subjectId) {
+    const allowedSubjects = validationRules.value.gradeSubjectMap[form.gradeId]
+    if (allowedSubjects && !allowedSubjects.includes(form.subjectId)) {
+      const gradeName = getGradeName(form.gradeId)
+      const subjectName = getSubjectName(form.subjectId)
+      issues.push({
+        level: 'error',
+        message: `分类组合不合法：${gradeName}不开设${subjectName}，请检查年级与学科是否匹配`
+      })
+    }
+  }
+
+  if (form.title && form.title.trim() && form.gradeId) {
+    const lowerTitle = form.title.toLowerCase()
+    for (const rule of validationRules.value.keywordRules || []) {
+      let matchedKeyword = null
+      for (const keyword of rule.keywords || []) {
+        if (lowerTitle.includes(keyword.toLowerCase())) {
+          matchedKeyword = keyword
+          break
+        }
+      }
+      if (matchedKeyword && !(rule.allowedGradeIds || []).includes(form.gradeId)) {
+        issues.push({
+          level: 'warning',
+          message: `标题含有"${matchedKeyword}"字样，更适合${rule.suitableGradeText}，当前选择的是${getGradeName(form.gradeId)}，请确认分类是否正确`
+        })
+        break
+      }
+    }
+  }
+
   return issues
 })
 
@@ -523,6 +556,10 @@ const rules = {
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
+const validationRules = ref({
+  gradeSubjectMap: {},
+  keywordRules: []
+})
 
 const chunkUpload = useChunkUpload()
 
@@ -626,6 +663,30 @@ const loadSubjects = async () => {
       { id: 4, name: '物理' },
       { id: 5, name: '化学' }
     ]
+  }
+}
+
+const loadValidationRules = async () => {
+  try {
+    const res = await getValidationRules()
+    if (res.data) {
+      validationRules.value = res.data
+    }
+  } catch (e) {
+    validationRules.value = {
+      gradeSubjectMap: {
+        1: [1, 2, 3, 10], 2: [1, 2, 3, 10], 3: [1, 2, 3, 10],
+        4: [1, 2, 3, 10], 5: [1, 2, 3, 10], 6: [1, 2, 3, 10],
+        7: [1, 2, 3, 4, 5, 6, 7, 8, 9], 8: [1, 2, 3, 4, 5, 6, 7, 8, 9], 9: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        10: [1, 2, 3, 4, 5, 6, 7, 8, 9], 11: [1, 2, 3, 4, 5, 6, 7, 8, 9], 12: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+      },
+      keywordRules: [
+        { keywords: ['识字', '拼音', '口算', '加减法', '乘法口诀', '生字', '看图写话', '三字经', '弟子规', '笔画', '笔顺'], allowedGradeIds: [1, 2, 3], suitableGradeText: '小学低年级（一至三年级）' },
+        { keywords: ['小学奥数', '小升初', '小学数学思维'], allowedGradeIds: [4, 5, 6], suitableGradeText: '小学高年级（四至六年级）' },
+        { keywords: ['初中', '中考', '八年级', '九年级', '初一', '初二', '初三'], allowedGradeIds: [7, 8, 9], suitableGradeText: '初中（七至九年级）' },
+        { keywords: ['高中', '高考', '高一', '高二', '高三', '必修一', '必修二', '必修三', '选择性必修', '一轮复习', '二轮复习', '三轮复习'], allowedGradeIds: [10, 11, 12], suitableGradeText: '高中（高一至高三）' }
+      ]
+    }
   }
 }
 
@@ -768,6 +829,7 @@ onMounted(() => {
   loadCategories()
   loadGrades()
   loadSubjects()
+  loadValidationRules()
 })
 </script>
 

@@ -304,3 +304,10 @@ export function handleCorrection(id, status, handleRemark = '') {
     params: { userId: DEFAULT_USER_ID, status, handleRemark }
   })
 }
+
+export function getValidationRules() {
+  return request({
+    url: '/materials/validation-rules',
+    method: 'get'
+  })
+}

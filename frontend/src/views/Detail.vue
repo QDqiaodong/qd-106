@@ -11,7 +11,7 @@
       >
         <div class="progress-left">
           <div class="progress-icon">
-            <el-icon :size="20"><Timer /></el-icon>
+            <el-icon :size="20" color="#409EFF"><Clock /></el-icon>
           </div>
           <div class="progress-info">
             <div class="progress-title">
@@ -32,7 +32,7 @@
           <el-button type="primary" size="default" @click="jumpToLastRead">
             <el-icon><VideoPlay /></el-icon>
             继续阅读
-            <el-icon><ArrowRight /></el-icon>
+            <el-icon><Right /></el-icon>
           </el-button>
         </div>
       </div>
@@ -221,13 +221,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document,
   Collection, Plus, Flag, Delete, Notebook, ShoppingCart, ShoppingCartFull,
-  VideoPlay, Timer, Files, ArrowRight
+  VideoPlay, Files, Right
 } from '@element-plus/icons-vue'
 import {
   getMaterialDetail, getCategoryList, getGradeList, getSubjectList,
@@ -329,117 +329,6 @@ const getSubjectName = (id) => subjectMap.value[id] || '未指定'
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   return dateStr.substring(0, 10)
-}
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return ''
-  const date = new Date(dateStr)
-  const now = new Date()
-  const diff = now - date
-  const minute = 60 * 1000
-  const hour = 60 * minute
-  const day = 24 * hour
-
-  if (diff < minute) {
-    return '刚刚'
-  } else if (diff < hour) {
-    return `${Math.floor(diff / minute)} 分钟前`
-  } else if (diff < day) {
-    return `${Math.floor(diff / hour)} 小时前`
-  } else if (diff < 7 * day) {
-    return `${Math.floor(diff / day)} 天前`
-  } else {
-    return dateStr.replace('T', ' ').substring(0, 16)
-  }
-}
-
-const jumpToLastRead = () => {
-  if (!previewUrl.value || !readingProgress.value) {
-    return
-  }
-  const pageNumber = readingProgress.value.pageNumber
-  if (!pageNumber || pageNumber <= 0) {
-    ElMessage.warning('无效的页码')
-    return
-  }
-  const separator = previewUrl.value.includes('#') ? '&' : '#'
-  const newSrc = previewUrl.value + separator + 'page=' + pageNumber
-  const iframe = document.querySelector('.preview-iframe')
-  if (iframe) {
-    iframe.src = newSrc
-  }
-  currentPage.value = pageNumber
-  ElMessage.success(`已回到上次阅读位置：第 ${pageNumber} 页`)
-}
-
-const saveCurrentProgress = async (pageNum) => {
-  if (!pageNum || pageNum <= 0) return
-  if (savingProgress.value) return
-  savingProgress.value = true
-  try {
-    await saveReadingProgress(materialId.value, pageNum)
-    if (readingProgress.value) {
-      readingProgress.value.pageNumber = pageNum
-      readingProgress.value.lastReadAt = new Date().toISOString()
-    } else {
-      readingProgress.value = {
-        pageNumber: pageNum,
-        lastReadAt: new Date().toISOString()
-      }
-    }
-  } catch (e) {
-    console.error('保存阅读进度失败', e)
-  } finally {
-    savingProgress.value = false
-  }
-}
-
-const handleIframePageChange = () => {
-  if (progressSaveTimer.value) {
-    clearTimeout(progressSaveTimer.value)
-  }
-  progressSaveTimer.value = setTimeout(() => {
-    const iframe = document.querySelector('.preview-iframe')
-    if (iframe) {
-      try {
-        const iframeSrc = iframe.src
-        const pageMatch = iframeSrc.match(/[#&]page=(\d+)/)
-        if (pageMatch && pageMatch[1]) {
-          const page = parseInt(pageMatch[1])
-          if (page !== currentPage.value && page > 0) {
-            currentPage.value = page
-            saveCurrentProgress(page)
-          }
-        }
-      } catch (e) {
-        console.error('检测页码变化失败', e)
-      }
-    }
-  }, 1000)
-}
-
-const setupIframeListener = () => {
-  const iframe = document.querySelector('.preview-iframe')
-  if (iframe) {
-    iframe.addEventListener('load', () => {
-      try {
-        const iframeSrc = iframe.src
-        const pageMatch = iframeSrc.match(/[#&]page=(\d+)/)
-        if (pageMatch && pageMatch[1]) {
-          const page = parseInt(pageMatch[1])
-          if (page > 0) {
-            currentPage.value = page
-          }
-        }
-      } catch (e) {
-        console.error('获取初始页码失败', e)
-      }
-    })
-    const checkSrcChange = setInterval(() => {
-      handleIframePageChange()
-    }, 2000)
-    progressSaveTimer.value = checkSrcChange
-  }
 }
 
 const handleFavorite = async () => {
@@ -572,20 +461,6 @@ onMounted(() => {
   loadDicts()
   loadDetail()
   loadBookmarks()
-  nextTick(() => {
-    setupIframeListener()
-  })
-})
-
-onUnmounted(() => {
-  if (progressSaveTimer.value) {
-    clearTimeout(progressSaveTimer.value)
-    clearInterval(progressSaveTimer.value)
-    progressSaveTimer.value = null
-  }
-  if (currentPage.value > 0) {
-    saveCurrentProgress(currentPage.value)
-  }
 })
 </script>
 
@@ -602,93 +477,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-}
-
-.reading-progress-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, #e6f4ff 0%, #f0f9ff 100%);
-  border: 1px solid #b3d8ff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
-}
-
-.progress-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex: 1;
-  min-width: 0;
-}
-
-.progress-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  background: #409eff;
-  border-radius: 50%;
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
-}
-
-.progress-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.progress-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-  font-size: 15px;
-  color: #303133;
-  font-weight: 500;
-}
-
-.page-highlight {
-  display: inline-block;
-  padding: 2px 10px;
-  background: #409eff;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.total-pages {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: #909399;
-  font-weight: normal;
-}
-
-.progress-time {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  color: #606266;
-}
-
-.progress-right {
-  flex-shrink: 0;
-  margin-left: 16px;
-}
-
-.progress-right .el-button {
-  border-radius: 8px;
-  padding: 10px 18px;
-  font-weight: 500;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.25);
 }
 
 .info-card {
@@ -941,27 +729,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .reading-progress-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 14px 16px;
-  }
-
-  .progress-right {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .progress-right .el-button {
-    width: 100%;
-  }
-
-  .progress-icon {
-    width: 40px;
-    height: 40px;
-  }
-
   .info-header {
     flex-direction: column;
   }

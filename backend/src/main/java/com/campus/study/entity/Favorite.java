@@ -26,4 +26,10 @@ public class Favorite {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "review_status")
+    private Integer reviewStatus = 0;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 }

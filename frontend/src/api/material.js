@@ -96,6 +96,22 @@ export function getMyFavorites(params) {
   })
 }
 
+export function updateReviewStatus(materialId, status) {
+  return request({
+    url: `/favorites/${materialId}/review-status`,
+    method: 'put',
+    params: { userId: DEFAULT_USER_ID, status }
+  })
+}
+
+export function getReviewStatus(materialId) {
+  return request({
+    url: `/favorites/${materialId}/review-status`,
+    method: 'get',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
 export function getHotMaterials(range) {
   return request({
     url: '/materials/hot',

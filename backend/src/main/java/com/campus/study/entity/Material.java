@@ -68,4 +68,10 @@ public class Material {
 
     @Transient
     private Object readingProgress;
+
+    @Transient
+    private Integer reviewStatus = 0;
+
+    @Transient
+    private String reviewedAt;
 }

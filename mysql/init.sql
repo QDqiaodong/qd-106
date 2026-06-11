@@ -75,11 +75,14 @@ CREATE TABLE IF NOT EXISTS `favorite` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` INT UNSIGNED NOT NULL COMMENT '用户ID',
   `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `review_status` TINYINT DEFAULT 0 COMMENT '复习状态 0未标记 1已看过 2待精读 3待打印',
+  `reviewed_at` DATETIME DEFAULT NULL COMMENT '复习标记时间',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_material` (`user_id`, `material_id`),
   KEY `idx_user` (`user_id`),
-  KEY `idx_material` (`material_id`)
+  KEY `idx_material` (`material_id`),
+  KEY `idx_review_status` (`review_status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏表';
 
 CREATE TABLE IF NOT EXISTS `bookmark` (

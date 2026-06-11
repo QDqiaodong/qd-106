@@ -12,6 +12,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,8 +40,20 @@ public class FavoriteService {
         Map<Long, Material> materialMap = materials.stream()
                 .collect(Collectors.toMap(Material::getId, m -> m));
 
+        Map<Long, Favorite> favoriteMap = favoritePage.getContent().stream()
+                .collect(Collectors.toMap(Favorite::getMaterialId, f -> f));
+
         List<Material> resultList = favoritePage.getContent().stream()
-                .map(f -> materialMap.get(f.getMaterialId()))
+                .map(f -> {
+                    Material m = materialMap.get(f.getMaterialId());
+                    if (m != null) {
+                        m.setReviewStatus(f.getReviewStatus() != null ? f.getReviewStatus() : 0);
+                        if (f.getReviewedAt() != null) {
+                            m.setReviewedAt(f.getReviewedAt().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+                        }
+                    }
+                    return m;
+                })
                 .filter(m -> m != null)
                 .collect(Collectors.toList());
 
@@ -59,6 +73,7 @@ public class FavoriteService {
         Favorite favorite = new Favorite();
         favorite.setUserId(userId);
         favorite.setMaterialId(materialId);
+        favorite.setReviewStatus(0);
         favoriteRepository.save(favorite);
         return true;
     }
@@ -74,5 +89,26 @@ public class FavoriteService {
 
     public boolean isFavorite(Long userId, Long materialId) {
         return favoriteRepository.existsByUserIdAndMaterialId(userId, materialId);
+    }
+
+    @Transactional
+    public boolean updateReviewStatus(Long userId, Long materialId, Integer status) {
+        Favorite favorite = favoriteRepository.findByUserIdAndMaterialId(userId, materialId).orElse(null);
+        if (favorite == null) {
+            return false;
+        }
+        favorite.setReviewStatus(status);
+        if (status != null && status > 0) {
+            favorite.setReviewedAt(LocalDateTime.now());
+        } else {
+            favorite.setReviewedAt(null);
+        }
+        favoriteRepository.save(favorite);
+        return true;
+    }
+
+    public Integer getReviewStatus(Long userId, Long materialId) {
+        Favorite favorite = favoriteRepository.findByUserIdAndMaterialId(userId, materialId).orElse(null);
+        return favorite != null && favorite.getReviewStatus() != null ? favorite.getReviewStatus() : 0;
     }
 }

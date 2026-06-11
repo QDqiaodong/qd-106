@@ -23,51 +23,96 @@
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="我的上传" name="uploads">
           <div class="list-container" v-loading="loading">
+            <div class="upload-toolbar">
+              <div class="toolbar-left">
+                <el-radio-group v-model="uploadGroupBy" size="small" @change="handleGroupByChange">
+                  <el-radio-button value="date">按日期分组</el-radio-button>
+                  <el-radio-button value="subject">按学科分组</el-radio-button>
+                </el-radio-group>
+              </div>
+              <div class="toolbar-right">
+                <el-button size="small" @click="toggleAllUploadGroups">
+                  {{ allUploadGroupsExpanded ? '全部收起' : '全部展开' }}
+                </el-button>
+              </div>
+            </div>
+
             <el-empty v-if="uploadList.length === 0" description="暂无上传资料" />
-            <div v-else class="material-list">
+            <div v-else class="upload-groups">
               <div
-                v-for="item in uploadList"
-                :key="item.id"
-                class="list-item"
+                v-for="group in uploadGroups"
+                :key="group.key"
+                class="upload-group"
               >
-                <div class="item-main" @click="goToDetail(item.id)">
-                  <div class="item-icon">
-                    <el-icon :size="24" color="#409EFF"><Document /></el-icon>
+                <div class="group-header" @click="toggleUploadGroup(group.key)">
+                  <div class="group-header-left">
+                    <el-icon class="collapse-icon" :class="{ expanded: expandedUploadGroups[group.key] }">
+                      <ArrowRight />
+                    </el-icon>
+                    <el-icon :size="20" :color="group.iconColor" class="group-icon">
+                      <component :is="group.icon" />
+                    </el-icon>
+                    <span class="group-title">{{ group.title }}</span>
+                    <el-tag size="small" type="info" class="group-count">
+                      {{ group.items.length }} 份
+                    </el-tag>
                   </div>
-                  <div class="item-content">
-                    <h3 class="item-title">{{ item.title }}</h3>
-                    <p class="item-desc">{{ item.description || '暂无描述' }}</p>
-                    <div class="item-tags">
-                      <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
-                      <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
-                      <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
-                    </div>
+                  <div class="group-header-right">
+                    <span class="group-meta">{{ group.meta }}</span>
                   </div>
                 </div>
-                <div class="item-side">
-                  <div class="item-meta">
-                    <span class="meta-item">
-                      <el-icon><View /></el-icon>
-                      {{ item.viewCount || 0 }}
-                    </span>
-                    <span class="meta-item">
-                      <el-icon><Download /></el-icon>
-                      {{ item.downloadCount || 0 }}
-                    </span>
-                  </div>
-                  <div class="item-actions">
-                    <span class="item-time">{{ formatDate(item.createdAt) }}</span>
-                    <el-button
-                      v-if="item.status === 1"
-                      type="danger"
-                      size="small"
-                      text
-                      @click.stop="handleDelete(item.id)"
+
+                <div
+                  class="group-content"
+                  :class="{ collapsed: !expandedUploadGroups[group.key] }"
+                >
+                  <div class="material-list">
+                    <div
+                      v-for="item in group.items"
+                      :key="item.id"
+                      class="list-item"
                     >
-                      <el-icon><Delete /></el-icon>
-                      下架
-                    </el-button>
-                    <el-tag v-else type="info" size="small">已下架</el-tag>
+                      <div class="item-main" @click="goToDetail(item.id)">
+                        <div class="item-icon">
+                          <el-icon :size="24" color="#409EFF"><Document /></el-icon>
+                        </div>
+                        <div class="item-content">
+                          <h3 class="item-title">{{ item.title }}</h3>
+                          <p class="item-desc">{{ item.description || '暂无描述' }}</p>
+                          <div class="item-tags">
+                            <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
+                            <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
+                            <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="item-side">
+                        <div class="item-meta">
+                          <span class="meta-item">
+                            <el-icon><View /></el-icon>
+                            {{ item.viewCount || 0 }}
+                          </span>
+                          <span class="meta-item">
+                            <el-icon><Download /></el-icon>
+                            {{ item.downloadCount || 0 }}
+                          </span>
+                        </div>
+                        <div class="item-actions">
+                          <span class="item-time">{{ formatDate(item.createdAt) }}</span>
+                          <el-button
+                            v-if="item.status === 1"
+                            type="danger"
+                            size="small"
+                            text
+                            @click.stop="handleDelete(item.id)"
+                          >
+                            <el-icon><Delete /></el-icon>
+                            下架
+                          </el-button>
+                          <el-tag v-else type="info" size="small">已下架</el-tag>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -88,49 +133,138 @@
 
         <el-tab-pane label="我的收藏" name="favorites">
           <div class="list-container" v-loading="favLoading">
-            <el-empty v-if="favoriteList.length === 0" description="暂无收藏资料" />
-            <div v-else class="material-list">
+            <div class="favorite-toolbar">
+              <div class="toolbar-left">
+                <span class="toolbar-title">复习勾选板</span>
+                <span class="toolbar-subtitle">点击标记管理你的复习进度</span>
+              </div>
+            </div>
+
+            <div class="review-stats">
               <div
-                v-for="item in favoriteList"
-                :key="item.id"
-                class="list-item"
+                v-for="stat in reviewStats"
+                :key="stat.status"
+                class="review-stat-card"
+                :class="{ active: activeReviewFilter === stat.status }"
+                @click="setReviewFilter(stat.status)"
               >
-                <div class="item-main" @click="goToDetail(item.id)">
-                  <div class="item-icon">
-                    <el-icon :size="24" color="#E6A23C"><StarFilled /></el-icon>
-                  </div>
-                  <div class="item-content">
-                    <h3 class="item-title">{{ item.title }}</h3>
-                    <p class="item-desc">{{ item.description || '暂无描述' }}</p>
-                    <div class="item-tags">
-                      <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
-                      <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
-                      <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
-                    </div>
+                <div class="stat-icon" :style="{ background: stat.bgColor }">
+                  <el-icon :size="20" :color="stat.iconColor">
+                    <component :is="stat.icon" />
+                  </el-icon>
+                </div>
+                <div class="stat-info">
+                  <div class="stat-number">{{ stat.count }}</div>
+                  <div class="stat-label">{{ stat.label }}</div>
+                </div>
+              </div>
+            </div>
+
+            <el-empty v-if="favoriteList.length === 0" description="暂无收藏资料" />
+            <div v-else class="favorite-sections">
+              <div
+                v-for="section in reviewSections"
+                :key="section.status"
+                class="review-section"
+                v-show="section.items.length > 0"
+              >
+                <div class="section-header">
+                  <div class="section-title">
+                    <el-icon :size="18" :color="section.color">
+                      <component :is="section.icon" />
+                    </el-icon>
+                    <span>{{ section.label }}</span>
+                    <el-tag size="small" type="info">
+                      {{ section.items.length }} 份
+                    </el-tag>
                   </div>
                 </div>
-                <div class="item-side">
-                  <div class="item-meta">
-                    <span class="meta-item">
-                      <el-icon><View /></el-icon>
-                      {{ item.viewCount || 0 }}
-                    </span>
-                    <span class="meta-item">
-                      <el-icon><Download /></el-icon>
-                      {{ item.downloadCount || 0 }}
-                    </span>
-                  </div>
-                  <div class="item-actions">
-                    <span class="item-time">{{ formatDate(item.createdAt) }}</span>
-                    <el-button
-                      type="warning"
-                      size="small"
-                      text
-                      @click.stop="handleUnfavorite(item.id)"
-                    >
-                      <el-icon><StarFilled /></el-icon>
-                      取消收藏
-                    </el-button>
+
+                <div class="material-list">
+                  <div
+                    v-for="item in section.items"
+                    :key="item.id"
+                    class="list-item favorite-item"
+                    :class="{ 'item-read': item.reviewStatus === 1 }"
+                  >
+                    <div class="item-checkbox" @click.stop="toggleReviewStatus(item)">
+                      <el-checkbox :model-value="item.reviewStatus === 1" />
+                    </div>
+                    <div class="item-main" @click="goToDetail(item.id)">
+                      <div class="item-icon">
+                        <el-icon :size="24" :color="item.reviewStatus === 1 ? '#909399' : '#E6A23C'">
+                          <StarFilled />
+                        </el-icon>
+                      </div>
+                      <div class="item-content">
+                        <h3 class="item-title" :class="{ 'title-read': item.reviewStatus === 1 }">
+                          {{ item.title }}
+                        </h3>
+                        <p class="item-desc">{{ item.description || '暂无描述' }}</p>
+                        <div class="item-tags">
+                          <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
+                          <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
+                          <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="item-side">
+                      <div class="item-meta">
+                        <span class="meta-item">
+                          <el-icon><View /></el-icon>
+                          {{ item.viewCount || 0 }}
+                        </span>
+                        <span class="meta-item">
+                          <el-icon><Download /></el-icon>
+                          {{ item.downloadCount || 0 }}
+                        </span>
+                      </div>
+                      <div class="item-actions">
+                        <div class="review-buttons">
+                          <el-button
+                            size="small"
+                            :type="item.reviewStatus === 1 ? 'success' : 'default'"
+                            :plain="item.reviewStatus !== 1"
+                            @click.stop="setItemReviewStatus(item, 1)"
+                          >
+                            <el-icon><Check /></el-icon>
+                            已看过
+                          </el-button>
+                          <el-button
+                            size="small"
+                            :type="item.reviewStatus === 2 ? 'warning' : 'default'"
+                            :plain="item.reviewStatus !== 2"
+                            @click.stop="setItemReviewStatus(item, 2)"
+                          >
+                            <el-icon><Reading /></el-icon>
+                            待精读
+                          </el-button>
+                          <el-button
+                            size="small"
+                            :type="item.reviewStatus === 3 ? 'primary' : 'default'"
+                            :plain="item.reviewStatus !== 3"
+                            @click.stop="setItemReviewStatus(item, 3)"
+                          >
+                            <el-icon><Printer /></el-icon>
+                            待打印
+                          </el-button>
+                        </div>
+                        <div class="action-row">
+                          <span class="item-time" v-if="item.reviewedAt">
+                            {{ formatDate(item.reviewedAt) }}
+                          </span>
+                          <el-button
+                            type="warning"
+                            size="small"
+                            text
+                            @click.stop="handleUnfavorite(item.id)"
+                          >
+                            <el-icon><StarFilled /></el-icon>
+                            取消收藏
+                          </el-button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -154,11 +288,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Upload, Star, StarFilled, Document, View, Download, Delete } from '@element-plus/icons-vue'
-import { getMyUploads, getMyFavorites, deleteMaterial, getCategoryList, getGradeList, getSubjectList } from '@/api/material'
+import {
+  Upload, Star, StarFilled, Document, View, Download, Delete,
+  ArrowRight, Calendar, Collection, Check, Reading, Printer
+} from '@element-plus/icons-vue'
+import {
+  getMyUploads, getMyFavorites, deleteMaterial,
+  getCategoryList, getGradeList, getSubjectList,
+  updateReviewStatus
+} from '@/api/material'
 import { useAppStore } from '@/store'
 
 const router = useRouter()
@@ -175,10 +316,14 @@ const favoriteCount = computed(() => appStore.favoriteCount)
 const uploadList = ref([])
 const uploadPage = ref(1)
 const uploadTotal = ref(0)
+const uploadGroupBy = ref('date')
+const expandedUploadGroups = ref({})
+const allUploadGroupsExpanded = ref(true)
 
 const favoriteList = ref([])
 const favoritePage = ref(1)
 const favoriteTotal = computed(() => appStore.favoriteCount)
+const activeReviewFilter = ref(-1)
 
 const categories = ref([])
 const grades = ref([])
@@ -213,6 +358,8 @@ const loadUploads = async () => {
     uploadList.value = res.data?.list || []
     uploadTotal.value = res.data?.total || 0
     uploadCount.value = uploadTotal.value
+    
+    initUploadGroups()
     
     if (uploadList.value.length === 0 && uploadPage.value > 1) {
       uploadPage.value--
@@ -264,6 +411,15 @@ const getSubjectName = (id) => subjectMap.value[id] || '未指定'
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   return dateStr.substring(0, 10)
+}
+
+const formatDateFull = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}年${month}月${day}日`
 }
 
 const handleTabChange = (tab) => {
@@ -337,6 +493,195 @@ const handleUnfavorite = async (id) => {
   }
 }
 
+const initUploadGroups = () => {
+  expandedUploadGroups.value = {}
+  uploadGroups.value.forEach(group => {
+    expandedUploadGroups.value[group.key] = true
+  })
+  allUploadGroupsExpanded.value = true
+}
+
+const uploadGroups = computed(() => {
+  const groups = []
+  const list = uploadList.value
+  
+  if (uploadGroupBy.value === 'date') {
+    const dateMap = {}
+    list.forEach(item => {
+      const dateKey = formatDate(item.createdAt)
+      if (!dateMap[dateKey]) {
+        dateMap[dateKey] = []
+      }
+      dateMap[dateKey].push(item)
+    })
+    
+    const sortedDates = Object.keys(dateMap).sort((a, b) => new Date(b) - new Date(a))
+    sortedDates.forEach(date => {
+      const items = dateMap[date]
+      const today = formatDate(new Date().toISOString())
+      const yesterday = formatDate(new Date(Date.now() - 86400000).toISOString())
+      
+      let title = formatDateFull(date)
+      let meta = ''
+      
+      if (date === today) {
+        title = '今天'
+        meta = formatDateFull(date)
+      } else if (date === yesterday) {
+        title = '昨天'
+        meta = formatDateFull(date)
+      } else {
+        meta = `${items.length} 份资料`
+      }
+      
+      groups.push({
+        key: 'date_' + date,
+        title,
+        meta,
+        icon: 'Calendar',
+        iconColor: '#409EFF',
+        items
+      })
+    })
+  } else {
+    const subjectMapGroups = {}
+    list.forEach(item => {
+      const subjectId = item.subjectId || 0
+      if (!subjectMapGroups[subjectId]) {
+        subjectMapGroups[subjectId] = []
+      }
+      subjectMapGroups[subjectId].push(item)
+    })
+    
+    Object.keys(subjectMapGroups).forEach(subjectId => {
+      const items = subjectMapGroups[subjectId]
+      const subjectName = getSubjectName(Number(subjectId))
+      
+      groups.push({
+        key: 'subject_' + subjectId,
+        title: subjectName,
+        meta: `${items.length} 份资料`,
+        icon: 'Collection',
+        iconColor: '#E6A23C',
+        items
+      })
+    })
+    
+    groups.sort((a, b) => a.items.length - b.items.length).reverse()
+  }
+  
+  return groups
+})
+
+const toggleUploadGroup = (key) => {
+  expandedUploadGroups.value[key] = !expandedUploadGroups.value[key]
+  const allExpanded = Object.values(expandedUploadGroups.value).every(v => v)
+  allUploadGroupsExpanded.value = allExpanded
+}
+
+const toggleAllUploadGroups = () => {
+  const newValue = !allUploadGroupsExpanded.value
+  uploadGroups.value.forEach(group => {
+    expandedUploadGroups.value[group.key] = newValue
+  })
+  allUploadGroupsExpanded.value = newValue
+}
+
+const handleGroupByChange = () => {
+  initUploadGroups()
+}
+
+const reviewSections = computed(() => {
+  const sections = [
+    {
+      status: 2,
+      label: '待精读',
+      icon: 'Reading',
+      color: '#E6A23C',
+      items: []
+    },
+    {
+      status: 3,
+      label: '待打印',
+      icon: 'Printer',
+      color: '#409EFF',
+      items: []
+    },
+    {
+      status: 0,
+      label: '未标记',
+      icon: 'StarFilled',
+      color: '#909399',
+      items: []
+    },
+    {
+      status: 1,
+      label: '已看过',
+      icon: 'Check',
+      color: '#67C23A',
+      items: []
+    }
+  ]
+  
+  let list = favoriteList.value
+  if (activeReviewFilter.value >= 0) {
+    list = list.filter(item => (item.reviewStatus || 0) === activeReviewFilter.value)
+  }
+  
+  list.forEach(item => {
+    const status = item.reviewStatus || 0
+    const section = sections.find(s => s.status === status)
+    if (section) {
+      section.items.push(item)
+    }
+  })
+  
+  return sections
+})
+
+const reviewStats = computed(() => {
+  const stats = [
+    { status: -1, label: '全部', icon: 'StarFilled', bgColor: '#f0f2f5', iconColor: '#909399', count: favoriteList.value.length },
+    { status: 2, label: '待精读', icon: 'Reading', bgColor: '#fdf6ec', iconColor: '#E6A23C', count: 0 },
+    { status: 3, label: '待打印', icon: 'Printer', bgColor: '#ecf5ff', iconColor: '#409EFF', count: 0 },
+    { status: 1, label: '已看过', icon: 'Check', bgColor: '#f0f9eb', iconColor: '#67C23A', count: 0 },
+    { status: 0, label: '未标记', icon: 'Star', bgColor: '#f5f7fa', iconColor: '#c0c4cc', count: 0 }
+  ]
+  
+  favoriteList.value.forEach(item => {
+    const status = item.reviewStatus || 0
+    const stat = stats.find(s => s.status === status)
+    if (stat) {
+      stat.count++
+    }
+  })
+  
+  return stats
+})
+
+const setReviewFilter = (status) => {
+  activeReviewFilter.value = activeReviewFilter.value === status ? -1 : status
+}
+
+const toggleReviewStatus = async (item) => {
+  const currentStatus = item.reviewStatus || 0
+  const newStatus = currentStatus === 1 ? 0 : 1
+  await setItemReviewStatus(item, newStatus)
+}
+
+const setItemReviewStatus = async (item, status) => {
+  try {
+    const oldStatus = item.reviewStatus || 0
+    item.reviewStatus = status
+    
+    await updateReviewStatus(item.id, status)
+    ElMessage.success(status === 0 ? '已取消标记' : '标记成功')
+  } catch (e) {
+    console.error('更新复习状态失败', e)
+    ElMessage.error('更新失败，请重试')
+  }
+}
+
 onMounted(() => {
   loadDicts()
   loadUploads()
@@ -346,7 +691,7 @@ onMounted(() => {
 <style scoped>
 .profile-page {
   width: 100%;
-  max-width: 1000px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -396,27 +741,138 @@ onMounted(() => {
   padding: 8px 0;
 }
 
-.material-list {
+.upload-toolbar,
+.favorite-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.toolbar-subtitle {
+  font-size: 13px;
+  color: #909399;
+}
+
+.upload-groups {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+.upload-group {
+  border: 1px solid #ebeef5;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+}
+
+.upload-group:hover {
+  border-color: #d9ecff;
+  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.08);
+}
+
+.group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.group-header:hover {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+.group-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.collapse-icon {
+  transition: transform 0.3s ease;
+  color: #909399;
+  font-size: 14px;
+}
+
+.collapse-icon.expanded {
+  transform: rotate(90deg);
+}
+
+.group-icon {
+  flex-shrink: 0;
+}
+
+.group-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.group-count {
+  margin-left: 4px;
+}
+
+.group-meta {
+  font-size: 13px;
+  color: #909399;
+}
+
+.group-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.group-content.collapsed {
+  max-height: 0;
+  overflow: hidden;
+}
+
+.group-content:not(.collapsed) {
+  max-height: 3000px;
+}
+
+.material-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
 }
 
 .list-item {
   display: flex;
   justify-content: space-between;
   align-items: stretch;
-  padding: 20px;
-  background: #fafafa;
-  border-radius: 8px;
-  transition: all 0.3s;
-  border: 1px solid #ebeef5;
+  padding: 18px 20px;
+  background: #fff;
+  border-bottom: 1px solid #f0f2f5;
+  transition: all 0.2s;
+}
+
+.list-item:last-child {
+  border-bottom: none;
 }
 
 .list-item:hover {
-  background: #f0f9ff;
-  border-color: #d9ecff;
-  box-shadow: 0 2px 12px rgba(64, 158, 255, 0.1);
+  background: #fafcff;
 }
 
 .item-main {
@@ -424,6 +880,15 @@ onMounted(() => {
   gap: 16px;
   cursor: pointer;
   flex: 1;
+  min-width: 0;
+}
+
+.item-checkbox {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 4px;
+  padding-right: 8px;
+  cursor: pointer;
 }
 
 .item-icon {
@@ -450,6 +915,12 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.title-read {
+  color: #909399;
+  text-decoration: line-through;
 }
 
 .item-desc {
@@ -475,6 +946,7 @@ onMounted(() => {
   align-items: flex-end;
   margin-left: 20px;
   flex-shrink: 0;
+  gap: 12px;
 }
 
 .item-meta {
@@ -497,9 +969,122 @@ onMounted(() => {
   gap: 8px;
 }
 
+.review-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .item-time {
   font-size: 12px;
   color: #c0c4cc;
+}
+
+.item-read {
+  opacity: 0.7;
+}
+
+.review-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.review-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.review-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.review-stat-card.active {
+  border-color: #409eff;
+  background: #ecf5ff;
+}
+
+.stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-number {
+  font-size: 22px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #606266;
+}
+
+.favorite-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.review-section {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-header {
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.favorite-item {
+  padding-left: 16px;
 }
 
 .pagination-wrapper {
@@ -534,6 +1119,21 @@ onMounted(() => {
   
   .user-stats {
     justify-content: center;
+  }
+  
+  .review-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .review-buttons {
+    justify-content: flex-start;
+  }
+  
+  .upload-toolbar,
+  .favorite-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
 }
 </style>

@@ -27,6 +27,24 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
     Page<Material> findByCategoryIdAndGradeIdAndSubjectIdAndStatus(
             Long categoryId, Long gradeId, Long subjectId, Integer status, Pageable pageable);
 
+    Page<Material> findByTitleContainingAndCategoryIdAndStatus(String title, Long categoryId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndGradeIdAndStatus(String title, Long gradeId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndSubjectIdAndStatus(String title, Long subjectId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndCategoryIdAndGradeIdAndSubjectIdAndStatus(
+            String title, Long categoryId, Long gradeId, Long subjectId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndCategoryIdAndGradeIdAndStatus(
+            String title, Long categoryId, Long gradeId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndCategoryIdAndSubjectIdAndStatus(
+            String title, Long categoryId, Long subjectId, Integer status, Pageable pageable);
+
+    Page<Material> findByTitleContainingAndGradeIdAndSubjectIdAndStatus(
+            String title, Long gradeId, Long subjectId, Integer status, Pageable pageable);
+
     Page<Material> findByUserId(Long userId, Pageable pageable);
 
     List<Material> findByUserId(Long userId);

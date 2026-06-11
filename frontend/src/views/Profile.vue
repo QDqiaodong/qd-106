@@ -531,16 +531,11 @@ const loadFavorites = async () => {
     favoriteList.value = res.data?.list || []
     const total = res.data?.total || 0
     appStore.setFavoriteCount(total)
-    
+
     if (favoritePage.value === 1) {
-      const map = { ...appStore.favoriteMap }
-      favoriteList.value.forEach(item => {
-        map[Number(item.id)] = true
-      })
-      appStore.favoriteMap = map
-      appStore.favoritesLoaded = true
+      await appStore.loadFavorites(true)
     }
-    
+
     if (favoriteList.value.length === 0 && favoritePage.value > 1) {
       favoritePage.value--
       return loadFavorites()

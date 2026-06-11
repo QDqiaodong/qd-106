@@ -44,40 +44,51 @@ public class MaterialService {
 
     public Page<Material> getMaterialPage(int page, int size, String keyword, Long categoryId, Long gradeId, Long subjectId) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        
-        if (keyword != null && !keyword.isEmpty()) {
-            String cacheKey = SEARCH_HISTORY_KEY_PREFIX + keyword + ":" + page + ":" + size;
-            @SuppressWarnings("unchecked")
-            Page<Material> cachedPage = (Page<Material>) redisTemplate.opsForValue().get(cacheKey);
-            if (cachedPage != null) {
-                enrichMaterialListViewCount(cachedPage.getContent());
-                return cachedPage;
-            }
-            Page<Material> resultPage = materialRepository.findByTitleContainingAndStatus(keyword, 1, pageable);
-            enrichMaterialListViewCount(resultPage.getContent());
-            redisTemplate.opsForValue().set(cacheKey, resultPage, SEARCH_CACHE_TIMEOUT, TimeUnit.MINUTES);
-            return resultPage;
-        }
-        
+
+        boolean hasKeyword = keyword != null && !keyword.isEmpty();
         boolean hasCategory = categoryId != null && categoryId > 0;
         boolean hasGrade = gradeId != null && gradeId > 0;
         boolean hasSubject = subjectId != null && subjectId > 0;
-        
+
+        String cacheKey = SEARCH_HISTORY_KEY_PREFIX + (hasKeyword ? keyword : "") + ":c" + (hasCategory ? categoryId : "0") + ":g" + (hasGrade ? gradeId : "0") + ":s" + (hasSubject ? subjectId : "0") + ":" + page + ":" + size;
+        @SuppressWarnings("unchecked")
+        Page<Material> cachedPage = (Page<Material>) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedPage != null) {
+            enrichMaterialListViewCount(cachedPage.getContent());
+            return cachedPage;
+        }
+
         Page<Material> resultPage;
-        if (hasCategory || hasGrade || hasSubject) {
-            if (hasCategory && hasGrade && hasSubject) {
-                resultPage = materialRepository.findByCategoryIdAndGradeIdAndSubjectIdAndStatus(categoryId, gradeId, subjectId, 1, pageable);
-            } else if (hasCategory) {
-                resultPage = materialRepository.findByCategoryIdAndStatus(categoryId, 1, pageable);
-            } else if (hasGrade) {
-                resultPage = materialRepository.findByGradeIdAndStatus(gradeId, 1, pageable);
-            } else {
-                resultPage = materialRepository.findBySubjectIdAndStatus(subjectId, 1, pageable);
-            }
+        if (hasKeyword && hasCategory && hasGrade && hasSubject) {
+            resultPage = materialRepository.findByTitleContainingAndCategoryIdAndGradeIdAndSubjectIdAndStatus(keyword, categoryId, gradeId, subjectId, 1, pageable);
+        } else if (hasKeyword && hasCategory && hasGrade) {
+            resultPage = materialRepository.findByTitleContainingAndCategoryIdAndGradeIdAndStatus(keyword, categoryId, gradeId, 1, pageable);
+        } else if (hasKeyword && hasCategory && hasSubject) {
+            resultPage = materialRepository.findByTitleContainingAndCategoryIdAndSubjectIdAndStatus(keyword, categoryId, subjectId, 1, pageable);
+        } else if (hasKeyword && hasGrade && hasSubject) {
+            resultPage = materialRepository.findByTitleContainingAndGradeIdAndSubjectIdAndStatus(keyword, gradeId, subjectId, 1, pageable);
+        } else if (hasKeyword && hasCategory) {
+            resultPage = materialRepository.findByTitleContainingAndCategoryIdAndStatus(keyword, categoryId, 1, pageable);
+        } else if (hasKeyword && hasGrade) {
+            resultPage = materialRepository.findByTitleContainingAndGradeIdAndStatus(keyword, gradeId, 1, pageable);
+        } else if (hasKeyword && hasSubject) {
+            resultPage = materialRepository.findByTitleContainingAndSubjectIdAndStatus(keyword, subjectId, 1, pageable);
+        } else if (hasKeyword) {
+            resultPage = materialRepository.findByTitleContainingAndStatus(keyword, 1, pageable);
+        } else if (hasCategory && hasGrade && hasSubject) {
+            resultPage = materialRepository.findByCategoryIdAndGradeIdAndSubjectIdAndStatus(categoryId, gradeId, subjectId, 1, pageable);
+        } else if (hasCategory) {
+            resultPage = materialRepository.findByCategoryIdAndStatus(categoryId, 1, pageable);
+        } else if (hasGrade) {
+            resultPage = materialRepository.findByGradeIdAndStatus(gradeId, 1, pageable);
+        } else if (hasSubject) {
+            resultPage = materialRepository.findBySubjectIdAndStatus(subjectId, 1, pageable);
         } else {
             resultPage = materialRepository.findByStatus(1, pageable);
         }
+
         enrichMaterialListViewCount(resultPage.getContent());
+        redisTemplate.opsForValue().set(cacheKey, resultPage, SEARCH_CACHE_TIMEOUT, TimeUnit.MINUTES);
         return resultPage;
     }
 

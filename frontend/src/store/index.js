@@ -147,12 +147,18 @@ export const useAppStore = defineStore('app', {
     },
     async toggleFavorite(id) {
       const isFav = this.isFavorite(id)
-      if (isFav) {
-        await this.doUnfavorite(id)
-      } else {
-        await this.doFavorite(id)
+      this.setFavorite(id, !isFav)
+      try {
+        if (isFav) {
+          await unfavoriteMaterial(id)
+        } else {
+          await favoriteMaterial(id)
+        }
+        return !isFav
+      } catch (e) {
+        this.setFavorite(id, isFav)
+        throw e
       }
-      return !isFav
     },
     setFavoriteCount(count) {
       this.favoriteCount = count

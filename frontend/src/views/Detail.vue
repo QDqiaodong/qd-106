@@ -358,7 +358,7 @@ const categoryMap = ref({})
 const gradeMap = ref({})
 const subjectMap = ref({})
 
-const isFavorited = ref(false)
+const isFavorited = computed(() => appStore.isFavorite(materialId.value))
 const isInBasket = computed(() => appStore.isInBasket(materialId.value))
 
 const bookmarks = ref([])
@@ -393,10 +393,6 @@ const iframeSrc = computed(() => {
   return previewUrl.value
 })
 
-const syncFavoriteFromStore = () => {
-  isFavorited.value = appStore.isFavorite(materialId.value)
-}
-
 const loadDicts = async () => {
   try {
     const [catRes, gradeRes, subRes] = await Promise.all([
@@ -422,7 +418,6 @@ const loadDetail = async () => {
     detail.value = res.data || {}
     
     if (detail.value.favorited !== undefined) {
-      isFavorited.value = detail.value.favorited
       appStore.setFavorite(materialId.value, detail.value.favorited)
     }
     
@@ -457,14 +452,10 @@ const formatDateTime = (dateStr) => {
 }
 
 const handleFavorite = async () => {
-  const oldValue = isFavorited.value
-  isFavorited.value = !oldValue
   try {
     const newFavorited = await appStore.toggleFavorite(materialId.value)
-    isFavorited.value = newFavorited
     ElMessage.success(newFavorited ? '收藏成功' : '已取消收藏')
   } catch (e) {
-    isFavorited.value = oldValue
     ElMessage.error(e.response?.data?.message || '操作失败，请重试')
   }
 }
@@ -641,7 +632,6 @@ const handleSubmitCorrection = async () => {
 }
 
 onMounted(() => {
-  syncFavoriteFromStore()
   loadDicts()
   loadDetail()
   loadBookmarks()

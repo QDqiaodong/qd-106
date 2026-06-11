@@ -1,8 +1,12 @@
 package com.campus.study.service;
 
 import com.campus.study.entity.Material;
+import com.campus.study.enums.PreviewErrorCode;
 import com.campus.study.repository.MaterialRepository;
+import com.campus.study.util.FileUtil;
+import com.campus.study.vo.PreviewStatusVO;
 import jakarta.annotation.Resource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -11,9 +15,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.time.Month;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -41,6 +47,112 @@ public class MaterialService {
 
     @Resource
     private ViewCountService viewCountService;
+
+    @Resource
+    private FileUtil fileUtil;
+
+    @Value("${file.upload.path:/app/uploads}")
+    private String uploadPath;
+
+    private static final List<String> PREVIEWABLE_EXTENSIONS = Arrays.asList(
+            "pdf", "txt", "jpg", "jpeg", "png", "gif"
+    );
+
+    private static final long MAX_PREVIEW_FILE_SIZE = 50 * 1024 * 1024L;
+
+    public PreviewStatusVO checkPreviewStatus(Long id) {
+        PreviewStatusVO vo = new PreviewStatusVO();
+
+        Material material = materialRepository.findById(id).orElse(null);
+        if (material == null) {
+            vo.setCode(PreviewErrorCode.MATERIAL_NOT_FOUND.getCode());
+            vo.setMessage(PreviewErrorCode.MATERIAL_NOT_FOUND.getMessage());
+            vo.setPreviewable(false);
+            vo.setDownloadable(false);
+            return vo;
+        }
+
+        if (material.getStatus() == null || material.getStatus() != 1) {
+            vo.setCode(PreviewErrorCode.MATERIAL_OFFLINE.getCode());
+            vo.setMessage(PreviewErrorCode.MATERIAL_OFFLINE.getMessage());
+            vo.setPreviewable(false);
+            vo.setDownloadable(false);
+            return vo;
+        }
+
+        String fileUrl = material.getFileUrl();
+        if (fileUrl == null || fileUrl.isEmpty()) {
+            vo.setCode(PreviewErrorCode.FILE_NOT_FOUND.getCode());
+            vo.setMessage(PreviewErrorCode.FILE_NOT_FOUND.getMessage());
+            vo.setPreviewable(false);
+            vo.setDownloadable(false);
+            return vo;
+        }
+
+        String relativePath = fileUrl.startsWith("/uploads/") ? fileUrl.substring(9) : fileUrl;
+        File file = new File(uploadPath, relativePath);
+
+        if (!file.exists()) {
+            vo.setCode(PreviewErrorCode.FILE_NOT_FOUND.getCode());
+            vo.setMessage(PreviewErrorCode.FILE_NOT_FOUND.getMessage());
+            vo.setPreviewable(false);
+            vo.setDownloadable(false);
+            vo.setFallbackTip("文件已丢失，请联系管理员");
+            return vo;
+        }
+
+        if (file.length() == 0) {
+            vo.setCode(PreviewErrorCode.FILE_EMPTY.getCode());
+            vo.setMessage(PreviewErrorCode.FILE_EMPTY.getMessage());
+            vo.setPreviewable(false);
+            vo.setDownloadable(true);
+            vo.setFileSize(0L);
+            return vo;
+        }
+
+        String extension = fileUtil.getFileExtension(file.getName());
+        vo.setFileType(extension);
+        vo.setFileSize(file.length());
+        vo.setDownloadable(true);
+
+        if (!fileUtil.isValidExtension(extension)) {
+            vo.setCode(PreviewErrorCode.FORMAT_NOT_SUPPORTED.getCode());
+            vo.setMessage(PreviewErrorCode.FORMAT_NOT_SUPPORTED.getMessage());
+            vo.setPreviewable(false);
+            vo.setFallbackTip("该文件格式不被系统支持");
+            return vo;
+        }
+
+        if (!PREVIEWABLE_EXTENSIONS.contains(extension.toLowerCase())) {
+            vo.setCode(PreviewErrorCode.FORMAT_NOT_SUPPORTED.getCode());
+            vo.setMessage(PreviewErrorCode.FORMAT_NOT_SUPPORTED.getMessage());
+            vo.setPreviewable(false);
+            vo.setFallbackTip("该格式暂不支持在线预览，建议下载后查看");
+            return vo;
+        }
+
+        if (file.length() > MAX_PREVIEW_FILE_SIZE) {
+            vo.setCode(PreviewErrorCode.FILE_TOO_LARGE.getCode());
+            vo.setMessage(PreviewErrorCode.FILE_TOO_LARGE.getMessage());
+            vo.setPreviewable(false);
+            vo.setFallbackTip("文件过大，建议下载后查看");
+            return vo;
+        }
+
+        try {
+            vo.setCode(PreviewErrorCode.SUCCESS.getCode());
+            vo.setMessage(PreviewErrorCode.SUCCESS.getMessage());
+            vo.setPreviewable(true);
+            vo.setPreviewUrl("/materials/" + id + "/preview");
+        } catch (Exception e) {
+            vo.setCode(PreviewErrorCode.PREVIEW_GENERATE_ERROR.getCode());
+            vo.setMessage(PreviewErrorCode.PREVIEW_GENERATE_ERROR.getMessage());
+            vo.setPreviewable(false);
+            vo.setFallbackTip("预览生成失败，请稍后重试或下载查看");
+        }
+
+        return vo;
+    }
 
     public Page<Material> getMaterialPage(int page, int size, String keyword, Long categoryId, Long gradeId, Long subjectId) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "createdAt"));

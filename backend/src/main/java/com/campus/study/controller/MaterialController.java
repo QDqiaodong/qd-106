@@ -9,6 +9,7 @@ import com.campus.study.service.MaterialService;
 import com.campus.study.service.ReadingProgressService;
 import com.campus.study.util.FileUtil;
 import com.campus.study.util.IpUtil;
+import com.campus.study.vo.PreviewStatusVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -217,6 +218,16 @@ public class MaterialController {
             return Result.error("未收藏");
         }
         return Result.success("取消收藏成功", null);
+    }
+
+    @GetMapping("/{id}/preview/status")
+    public Result<PreviewStatusVO> previewStatus(@PathVariable Long id) {
+        try {
+            PreviewStatusVO status = materialService.checkPreviewStatus(id);
+            return Result.success(status);
+        } catch (Exception e) {
+            return Result.error("预览状态查询失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/{id}/preview")

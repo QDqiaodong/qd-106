@@ -120,20 +120,71 @@
           <div class="preview-header">
             <el-icon :size="18" color="#409EFF"><View /></el-icon>
             <span class="section-title">资料预览</span>
+            <el-tag v-if="previewStatus && previewStatus.fileType" size="small" type="info" class="file-type-tag">
+              {{ previewStatus.fileType.toUpperCase() }}
+            </el-tag>
           </div>
         </template>
-        <div class="preview-container">
-          <iframe
-            v-if="previewUrl"
-            :src="iframeSrc"
-            class="preview-iframe"
-            frameborder="0"
-          ></iframe>
-          <div v-else class="preview-placeholder">
-            <el-icon :size="80" color="#c0c4cc"><Document /></el-icon>
-            <p class="placeholder-text">暂无预览内容</p>
-            <p class="placeholder-tip">上传的资料支持在线预览</p>
-          </div>
+        <div class="preview-container" v-loading="previewLoading">
+          <template v-if="previewStatus && previewStatus.previewable && previewUrl">
+            <iframe
+              :src="iframeSrc"
+              class="preview-iframe"
+              frameborder="0"
+            ></iframe>
+          </template>
+
+          <template v-else-if="previewStatus && !previewStatus.previewable">
+            <div class="preview-error">
+              <div class="error-icon-wrapper">
+                <el-icon :size="64" :class="getPreviewErrorIconClass()">
+                  <component :is="getPreviewErrorIcon()" />
+                </el-icon>
+              </div>
+              <h3 class="error-title">{{ previewStatus.message || '预览失败' }}</h3>
+              <p class="error-code">错误码：{{ previewStatus.code }}</p>
+              <p v-if="previewStatus.fallbackTip" class="error-tip">
+                {{ previewStatus.fallbackTip }}
+              </p>
+              <div class="error-actions">
+                <el-button
+                  v-if="previewStatus.downloadable"
+                  type="primary"
+                  @click="handleDownload"
+                >
+                  <el-icon><Download /></el-icon>
+                  下载资料
+                </el-button>
+                <el-button @click="loadPreviewStatus">
+                  <el-icon><Refresh /></el-icon>
+                  重新加载
+                </el-button>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="previewError && !previewStatus">
+            <div class="preview-error">
+              <div class="error-icon-wrapper">
+                <el-icon :size="64" color="#F56C6C"><Warning /></el-icon>
+              </div>
+              <h3 class="error-title">{{ previewError }}</h3>
+              <div class="error-actions">
+                <el-button type="primary" @click="loadPreviewStatus">
+                  <el-icon><Refresh /></el-icon>
+                  重新加载
+                </el-button>
+              </div>
+            </div>
+          </template>
+
+          <template v-else>
+            <div class="preview-placeholder">
+              <el-icon :size="80" color="#c0c4cc"><Document /></el-icon>
+              <p class="placeholder-text">暂无预览内容</p>
+              <p class="placeholder-tip">上传的资料支持在线预览</p>
+            </div>
+          </template>
         </div>
       </el-card>
 
@@ -345,13 +396,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft, Star, StarFilled, Download, User, Clock, View, Document,
   Collection, Plus, Flag, Delete, Notebook, ShoppingCart, ShoppingCartFull,
-  VideoPlay, Files, Right, Warning, Edit, DocumentDelete
+  VideoPlay, Files, Right, Warning, Edit, DocumentDelete, Refresh,
+  DocumentDelete as FileNotFound, PictureFilled, Files as FileType
 } from '@element-plus/icons-vue'
 import {
   getMaterialDetail, getCategoryList, getGradeList, getSubjectList,
   getBookmarks, addBookmark, deleteBookmark,
   saveReadingProgress,
-  submitCorrection, getCorrectionsByMaterial
+  submitCorrection, getCorrectionsByMaterial,
+  getPreviewStatus
 } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -366,6 +419,10 @@ const offlineStatus = ref('')
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
+
+const previewStatus = ref(null)
+const previewLoading = ref(false)
+const previewError = ref('')
 
 const categoryMap = ref({})
 const gradeMap = ref({})
@@ -426,6 +483,31 @@ const loadDicts = async () => {
   }
 }
 
+const loadPreviewStatus = async () => {
+  previewLoading.value = true
+  previewError.value = ''
+  previewStatus.value = null
+  try {
+    const res = await getPreviewStatus(materialId.value)
+    if (res.code === 200 && res.data) {
+      previewStatus.value = res.data
+      if (res.data.previewable && res.data.previewUrl) {
+        previewUrl.value = res.data.previewUrl
+      } else {
+        previewUrl.value = ''
+        previewError.value = res.data.message || '无法预览'
+      }
+    } else {
+      previewError.value = res.message || '预览状态查询失败'
+    }
+  } catch (e) {
+    console.error('获取预览状态失败', e)
+    previewError.value = '预览状态查询失败，请稍后重试'
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 const loadDetail = async () => {
   loading.value = true
   offlineStatus.value = ''
@@ -448,9 +530,7 @@ const loadDetail = async () => {
       currentPage.value = rawDetail.value.readingProgress.pageNumber || 1
     }
     
-    if (rawDetail.value.fileUrl) {
-      previewUrl.value = rawDetail.value.fileUrl
-    }
+    loadPreviewStatus()
   } catch (e) {
     console.error('加载详情失败', e)
     ElMessage.error('加载详情失败')
@@ -471,6 +551,25 @@ const formatDate = (dateStr) => {
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   return dateStr.replace('T', ' ').substring(0, 16)
+}
+
+const getPreviewErrorIcon = () => {
+  if (!previewStatus.value) return Warning
+  const code = previewStatus.value.code
+  if (code >= 4001 && code <= 4003) return Document
+  if (code === 4004 || code === 4005) return FileType
+  if (code === 4006) return Files
+  if (code >= 5000) return Warning
+  return Warning
+}
+
+const getPreviewErrorIconClass = () => {
+  if (!previewStatus.value) return 'error-icon-warning'
+  const code = previewStatus.value.code
+  if (code >= 4001 && code <= 4003) return 'error-icon-info'
+  if (code === 4004 || code === 4005 || code === 4006) return 'error-icon-warning'
+  if (code >= 5000) return 'error-icon-danger'
+  return 'error-icon-warning'
 }
 
 const handleFavorite = async () => {
@@ -793,6 +892,10 @@ onMounted(() => {
   gap: 8px;
 }
 
+.file-type-tag {
+  margin-left: 8px;
+}
+
 .preview-container {
   min-height: 600px;
   background: #fff;
@@ -825,6 +928,61 @@ onMounted(() => {
 .placeholder-tip {
   font-size: 14px;
   color: #c0c4cc;
+}
+
+.preview-error {
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px;
+  text-align: center;
+  background: #fafafa;
+}
+
+.error-icon-wrapper {
+  margin-bottom: 8px;
+}
+
+.error-icon-info {
+  color: #909399;
+}
+
+.error-icon-warning {
+  color: #E6A23C;
+}
+
+.error-icon-danger {
+  color: #F56C6C;
+}
+
+.error-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+
+.error-code {
+  font-size: 12px;
+  color: #c0c4cc;
+  margin: 0;
+}
+
+.error-tip {
+  font-size: 14px;
+  color: #606266;
+  max-width: 400px;
+  line-height: 1.6;
+  margin: 4px 0 12px 0;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .bookmark-card {
@@ -1091,8 +1249,22 @@ onMounted(() => {
   }
   
   .preview-iframe,
-  .preview-placeholder {
+  .preview-placeholder,
+  .preview-error {
     height: 400px;
+  }
+
+  .error-title {
+    font-size: 16px;
+  }
+
+  .error-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .error-actions .el-button {
+    width: 100%;
   }
 
   .bookmark-header {

@@ -318,3 +318,10 @@ export function recordDownload(id) {
     method: 'post'
   })
 }
+
+export function getPreviewStatus(id) {
+  return request({
+    url: `/materials/${id}/preview/status`,
+    method: 'get'
+  })
+}

@@ -5,6 +5,17 @@
     </div>
 
     <div class="detail-content" v-loading="loading">
+      <div v-if="offlineStatus" class="offline-notice">
+        <el-icon :size="64" color="#c0c4cc"><Warning /></el-icon>
+        <h2 class="offline-title">{{ offlineStatus }}</h2>
+        <p class="offline-desc">{{ offlineStatus === '资料不存在' ? '该资料可能已被删除' : '该资料已被上传者下架，暂时无法查看' }}</p>
+        <div class="offline-actions">
+          <el-button type="primary" @click="$router.back()">返回列表</el-button>
+          <el-button @click="$router.push('/')">回到首页</el-button>
+        </div>
+      </div>
+
+      <template v-else>
       <div
         v-if="readingProgress && readingProgress.pageNumber > 0"
         class="reading-progress-bar"
@@ -322,6 +333,7 @@
           </el-button>
         </template>
       </el-dialog>
+      </template>
     </div>
   </div>
 </template>
@@ -350,6 +362,7 @@ const materialId = computed(() => Number(route.params.id))
 const rawDetail = ref({})
 const previewUrl = ref('')
 const loading = ref(false)
+const offlineStatus = ref('')
 const categories = ref([])
 const grades = ref([])
 const subjects = ref([])
@@ -415,8 +428,13 @@ const loadDicts = async () => {
 
 const loadDetail = async () => {
   loading.value = true
+  offlineStatus.value = ''
   try {
     const res = await getMaterialDetail(materialId.value)
+    if (res.code !== 200) {
+      offlineStatus.value = res.message || '加载失败'
+      return
+    }
     rawDetail.value = res.data || {}
     
     appStore.setMaterialStats(rawDetail.value)
@@ -660,6 +678,36 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
+}
+
+.offline-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+
+.offline-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #909399;
+  margin: 20px 0 8px;
+}
+
+.offline-desc {
+  font-size: 14px;
+  color: #c0c4cc;
+  margin-bottom: 28px;
+}
+
+.offline-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .info-card {

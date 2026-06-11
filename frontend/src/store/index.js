@@ -149,7 +149,10 @@ export const useAppStore = defineStore('app', {
     },
     async doFavorite(id) {
       try {
-        await favoriteMaterial(id)
+        const res = await favoriteMaterial(id)
+        if (res.code !== 200) {
+          throw new Error(res.message || '收藏失败')
+        }
         this.setFavorite(id, true)
         return true
       } catch (e) {
@@ -158,7 +161,10 @@ export const useAppStore = defineStore('app', {
     },
     async doUnfavorite(id) {
       try {
-        await unfavoriteMaterial(id)
+        const res = await unfavoriteMaterial(id)
+        if (res.code !== 200) {
+          throw new Error(res.message || '取消收藏失败')
+        }
         this.setFavorite(id, false)
         return true
       } catch (e) {
@@ -170,9 +176,17 @@ export const useAppStore = defineStore('app', {
       this.setFavorite(id, !isFav)
       try {
         if (isFav) {
-          await unfavoriteMaterial(id)
+          const res = await unfavoriteMaterial(id)
+          if (res.code !== 200) {
+            this.setFavorite(id, isFav)
+            throw new Error(res.message || '操作失败')
+          }
         } else {
-          await favoriteMaterial(id)
+          const res = await favoriteMaterial(id)
+          if (res.code !== 200) {
+            this.setFavorite(id, isFav)
+            throw new Error(res.message || '操作失败')
+          }
         }
         return !isFav
       } catch (e) {
@@ -285,6 +299,9 @@ export const useAppStore = defineStore('app', {
       const numericId = Number(id)
       try {
         const res = await recordDownload(numericId)
+        if (res.code !== 200) {
+          throw new Error(res.message || '下载统计失败')
+        }
         const serverCount = res.data?.downloadCount
         if (serverCount !== undefined && serverCount !== null) {
           this.setMaterialDownloadCount(numericId, serverCount)

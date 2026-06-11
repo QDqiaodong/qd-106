@@ -393,11 +393,11 @@ const filterSnapshots = ref([])
 const saveDialogVisible = ref(false)
 const snapshotName = ref('')
 
-const materialList = computed(() => rawMaterialList.value.map(item => appStore.getEnrichedMaterial(item)))
+const materialList = computed(() => rawMaterialList.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
 
-const hotList7d = computed(() => rawHotList7d.value.map(item => appStore.getEnrichedMaterial(item)))
-const hotList30d = computed(() => rawHotList30d.value.map(item => appStore.getEnrichedMaterial(item)))
-const hotListSemester = computed(() => rawHotListSemester.value.map(item => appStore.getEnrichedMaterial(item)))
+const hotList7d = computed(() => rawHotList7d.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
+const hotList30d = computed(() => rawHotList30d.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
+const hotListSemester = computed(() => rawHotListSemester.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
 
 const currentHotList = computed(() => {
   switch (hotTab.value) {

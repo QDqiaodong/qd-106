@@ -200,6 +200,9 @@ public class MaterialController {
         if (material == null) {
             return Result.error("资料不存在");
         }
+        if (material.getStatus() == null || material.getStatus() != 1) {
+            return Result.error("资料已下架，无法收藏");
+        }
         boolean success = favoriteService.addFavorite(userId, id);
         if (!success) {
             return Result.error("已收藏");

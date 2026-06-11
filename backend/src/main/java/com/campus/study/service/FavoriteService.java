@@ -57,16 +57,25 @@ public class FavoriteService {
                 .filter(m -> m != null)
                 .collect(Collectors.toList());
 
+        long activeCount = resultList.stream()
+                .filter(m -> m.getStatus() != null && m.getStatus() == 1)
+                .count();
+
         Map<String, Object> result = new HashMap<>();
         result.put("list", resultList);
         result.put("total", favoritePage.getTotalElements());
         result.put("page", page);
         result.put("size", size);
+        result.put("activeCount", activeCount);
 
         return result;
     }
 
     public boolean addFavorite(Long userId, Long materialId) {
+        Material material = materialRepository.findById(materialId).orElse(null);
+        if (material == null || material.getStatus() == null || material.getStatus() != 1) {
+            return false;
+        }
         if (favoriteRepository.existsByUserIdAndMaterialId(userId, materialId)) {
             return false;
         }

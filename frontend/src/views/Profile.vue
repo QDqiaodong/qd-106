@@ -288,23 +288,26 @@
                     v-for="item in section.items"
                     :key="item.id"
                     class="list-item favorite-item"
-                    :class="{ 'item-read': item.reviewStatus === 1 }"
+                    :class="{ 'item-read': item.reviewStatus === 1, 'item-offline': item.status !== 1 }"
                   >
-                    <div class="item-checkbox" @click.stop="toggleReviewStatus(item)">
-                      <el-checkbox :model-value="item.reviewStatus === 1" />
+                    <div class="item-checkbox" @click.stop="item.status === 1 && toggleReviewStatus(item)">
+                      <el-checkbox :model-value="item.reviewStatus === 1" :disabled="item.status !== 1" />
                     </div>
-                    <div class="item-main" @click="goToDetail(item.id)">
+                    <div class="item-main" @click="item.status === 1 && goToDetail(item.id)">
                       <div class="item-icon">
-                        <el-icon :size="24" :color="item.reviewStatus === 1 ? '#909399' : '#E6A23C'">
+                        <el-icon :size="24" :color="item.status !== 1 ? '#c0c4cc' : (item.reviewStatus === 1 ? '#909399' : '#E6A23C')">
                           <StarFilled />
                         </el-icon>
                       </div>
                       <div class="item-content">
-                        <h3 class="item-title" :class="{ 'title-read': item.reviewStatus === 1 }">
+                        <h3 class="item-title" :class="{ 'title-read': item.reviewStatus === 1, 'title-offline': item.status !== 1 }">
                           {{ item.title }}
                         </h3>
-                        <p class="item-desc">{{ item.description || '暂无描述' }}</p>
-                        <div class="item-tags">
+                        <p class="item-desc">
+                          <el-tag v-if="item.status !== 1" type="info" size="small" class="offline-tag">已下架</el-tag>
+                          {{ item.description || '暂无描述' }}
+                        </p>
+                        <div class="item-tags" v-if="item.status === 1">
                           <el-tag size="small" type="success">{{ getCategoryName(item.categoryId) }}</el-tag>
                           <el-tag size="small">{{ getGradeName(item.gradeId) }}</el-tag>
                           <el-tag size="small" type="warning">{{ getSubjectName(item.subjectId) }}</el-tag>
@@ -323,7 +326,7 @@
                         </span>
                       </div>
                       <div class="item-actions">
-                        <div class="review-buttons">
+                        <div class="review-buttons" v-if="item.status === 1">
                           <el-button
                             size="small"
                             :type="item.reviewStatus === 1 ? 'success' : 'default'"
@@ -352,8 +355,11 @@
                             待打印
                           </el-button>
                         </div>
+                        <div class="review-buttons" v-else>
+                          <el-tag type="info" size="small">已下架</el-tag>
+                        </div>
                         <div class="action-row">
-                          <span class="item-time" v-if="item.reviewedAt">
+                          <span class="item-time" v-if="item.reviewedAt && item.status === 1">
                             {{ formatDate(item.reviewedAt) }}
                           </span>
                           <el-button
@@ -1221,6 +1227,20 @@ onMounted(() => {
 
 .item-read {
   opacity: 0.7;
+}
+
+.item-offline {
+  opacity: 0.6;
+  background: #fafafa;
+}
+
+.title-offline {
+  color: #c0c4cc;
+  text-decoration: line-through;
+}
+
+.offline-tag {
+  margin-right: 6px;
 }
 
 .review-stats {

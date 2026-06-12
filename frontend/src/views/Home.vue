@@ -209,6 +209,16 @@
                 </div>
                 <div class="card-actions">
                   <span class="upload-time">{{ formatDate(item.createdAt) }}</span>
+                  <el-tooltip content="拼页预览">
+                    <el-button
+                      type="primary"
+                      size="small"
+                      text
+                      @click="(e) => openPreview(e, item.id)"
+                    >
+                      <el-icon><Picture /></el-icon>
+                    </el-button>
+                  </el-tooltip>
                   <el-tooltip :content="appStore.isInBasket(item.id) ? '已在资料篮中' : '加入复习资料篮'">
                     <el-button
                       :type="appStore.isInBasket(item.id) ? 'success' : 'default'"
@@ -263,6 +273,16 @@
                   <el-icon><View /></el-icon>
                   <span class="stat-num">{{ item.viewCount || 0 }}</span>
                   <span class="stat-label">浏览</span>
+                </div>
+                <div
+                  class="stat-item preview-stat"
+                  @click="(e) => openPreview(e, item.id)"
+                >
+                  <el-tooltip content="拼页预览" placement="top">
+                    <el-icon color="#409EFF"><Picture /></el-icon>
+                  </el-tooltip>
+                  <span class="stat-num">-</span>
+                  <span class="stat-label">预览</span>
                 </div>
                 <div
                   class="stat-item basket-stat"
@@ -356,6 +376,11 @@
         </el-card>
       </div>
     </div>
+
+    <MaterialPreview
+      v-model="previewVisible"
+      :material-id="previewMaterialId"
+    />
   </div>
 </template>
 
@@ -363,7 +388,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus } from '@element-plus/icons-vue'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus, Picture } from '@element-plus/icons-vue'
+import MaterialPreview from '@/components/MaterialPreview.vue'
 import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot } from '@/api/material'
 import { useAppStore } from '@/store'
 
@@ -392,6 +418,8 @@ const subjects = ref([])
 const filterSnapshots = ref([])
 const saveDialogVisible = ref(false)
 const snapshotName = ref('')
+const previewVisible = ref(false)
+const previewMaterialId = ref(null)
 
 const materialList = computed(() => rawMaterialList.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
 
@@ -550,6 +578,12 @@ const handleCurrentChange = (page) => {
 
 const goToDetail = (id) => {
   router.push(`/detail/${id}`)
+}
+
+const openPreview = (e, id) => {
+  e.stopPropagation()
+  previewMaterialId.value = id
+  previewVisible.value = true
 }
 
 const handleFavorite = async (e, id) => {
@@ -1029,6 +1063,21 @@ onUnmounted(() => {
 
 .stat-item.favorite-stat.is-favorited .stat-num {
   color: #e6a23c;
+}
+
+.stat-item.preview-stat {
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.stat-item.preview-stat:hover {
+  background: #ecf5ff;
+}
+
+.stat-item.preview-stat .stat-label {
+  color: #409eff;
 }
 
 .stat-item.basket-stat {

@@ -1,9 +1,16 @@
 package com.campus.study.service;
 
+import com.campus.study.entity.Category;
+import com.campus.study.entity.Grade;
 import com.campus.study.entity.Material;
+import com.campus.study.entity.Subject;
 import com.campus.study.enums.PreviewErrorCode;
+import com.campus.study.repository.CategoryRepository;
+import com.campus.study.repository.GradeRepository;
 import com.campus.study.repository.MaterialRepository;
+import com.campus.study.repository.SubjectRepository;
 import com.campus.study.util.FileUtil;
+import com.campus.study.vo.MaterialThumbnailVO;
 import com.campus.study.vo.PreviewStatusVO;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +48,15 @@ public class MaterialService {
 
     @Resource
     private MaterialRepository materialRepository;
+
+    @Resource
+    private GradeRepository gradeRepository;
+
+    @Resource
+    private SubjectRepository subjectRepository;
+
+    @Resource
+    private CategoryRepository categoryRepository;
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
@@ -432,6 +448,83 @@ public class MaterialService {
         if (keys != null && !keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
+    }
+
+    public MaterialThumbnailVO getMaterialThumbnails(Long id, int limit) {
+        Material material = materialRepository.findById(id).orElse(null);
+        if (material == null) {
+            return null;
+        }
+        if (material.getStatus() == null || material.getStatus() != 1) {
+            return null;
+        }
+
+        MaterialThumbnailVO vo = new MaterialThumbnailVO();
+        vo.setId(material.getId());
+        vo.setTitle(material.getTitle());
+        vo.setDescription(material.getDescription());
+        vo.setCategoryId(material.getCategoryId());
+        vo.setGradeId(material.getGradeId());
+        vo.setSubjectId(material.getSubjectId());
+        vo.setTotalPages(material.getTotalPages());
+
+        if (material.getCategoryId() != null && material.getCategoryId() > 0) {
+            Category category = categoryRepository.findById(material.getCategoryId()).orElse(null);
+            if (category != null) {
+                vo.setCategoryName(category.getName());
+            }
+        }
+        if (material.getGradeId() != null && material.getGradeId() > 0) {
+            Grade grade = gradeRepository.findById(material.getGradeId()).orElse(null);
+            if (grade != null) {
+                vo.setGradeName(grade.getName());
+            }
+        }
+        if (material.getSubjectId() != null && material.getSubjectId() > 0) {
+            Subject subject = subjectRepository.findById(material.getSubjectId()).orElse(null);
+            if (subject != null) {
+                vo.setSubjectName(subject.getName());
+            }
+        }
+
+        List<MaterialThumbnailVO.ThumbnailItem> thumbnails = new ArrayList<>();
+        String cover = material.getCover();
+        int totalPages = material.getTotalPages() != null ? material.getTotalPages() : 0;
+        int pageCount = Math.min(limit, Math.max(totalPages, 1));
+
+        for (int i = 1; i <= pageCount; i++) {
+            MaterialThumbnailVO.ThumbnailItem item = new MaterialThumbnailVO.ThumbnailItem();
+            item.setPageNumber(i);
+            if (i == 1 && cover != null && !cover.isEmpty()) {
+                item.setImageUrl(cover);
+            } else {
+                item.setImageUrl(generatePlaceholderThumbnail(material.getId(), i));
+            }
+            item.setLabel(i == 1 ? "封面" : "第" + i + "页");
+            thumbnails.add(item);
+        }
+
+        vo.setThumbnails(thumbnails);
+        return vo;
+    }
+
+    private String generatePlaceholderThumbnail(Long materialId, int pageNumber) {
+        String[] colors = {
+            "3B82F6", "10B981", "F59E0B", "EF4444", "8B5CF6",
+            "EC4899", "06B6D4", "84CC16", "F97316", "6366F1"
+        };
+        String color = colors[(int) ((materialId + pageNumber) % colors.length)];
+        String text = "P" + pageNumber;
+        return "data:image/svg+xml;charset=UTF-8," +
+            "%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='280'%3E" +
+            "%3Crect width='200' height='280' fill='%23" + color + "'/%3E" +
+            "%3Crect x='10' y='10' width='180' height='260' fill='white' fill-opacity='0.9' rx='4'/%3E" +
+            "%3Ctext x='100' y='145' font-family='Arial,sans-serif' font-size='48' " +
+            "font-weight='bold' fill='%23" + color + "' text-anchor='middle' " +
+            "dominant-baseline='middle'%3E" + text + "%3C/text%3E" +
+            "%3Ctext x='100' y='200' font-family='Arial,sans-serif' font-size='12' " +
+            "fill='%23999' text-anchor='middle'%3E第 " + pageNumber + " 页%3C/text%3E" +
+            "%3C/svg%3E";
     }
 
     @Transactional

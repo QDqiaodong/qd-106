@@ -325,3 +325,11 @@ export function getPreviewStatus(id) {
     method: 'get'
   })
 }
+
+export function getMaterialThumbnails(id, limit = 5) {
+  return request({
+    url: `/materials/${id}/thumbnails`,
+    method: 'get',
+    params: { limit }
+  })
+}

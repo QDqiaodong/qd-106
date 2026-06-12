@@ -9,6 +9,7 @@ import com.campus.study.service.MaterialService;
 import com.campus.study.service.ReadingProgressService;
 import com.campus.study.util.FileUtil;
 import com.campus.study.util.IpUtil;
+import com.campus.study.vo.MaterialThumbnailVO;
 import com.campus.study.vo.PreviewStatusVO;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -218,6 +219,27 @@ public class MaterialController {
             return Result.error("未收藏");
         }
         return Result.success("取消收藏成功", null);
+    }
+
+    @GetMapping("/{id}/thumbnails")
+    public Result<MaterialThumbnailVO> getThumbnails(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "5") int limit) {
+        try {
+            if (limit <= 0) {
+                limit = 5;
+            }
+            if (limit > 20) {
+                limit = 20;
+            }
+            MaterialThumbnailVO vo = materialService.getMaterialThumbnails(id, limit);
+            if (vo == null) {
+                return Result.error("资料不存在或已下架");
+            }
+            return Result.success(vo);
+        } catch (Exception e) {
+            return Result.error("获取缩略图失败: " + e.getMessage());
+        }
     }
 
     @GetMapping("/{id}/preview/status")

@@ -20,6 +20,11 @@ const routes = [
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/Profile.vue')
+  },
+  {
+    path: '/gap-analysis',
+    name: 'GapAnalysis',
+    component: () => import('@/views/GapAnalysis.vue')
   }
 ]
 

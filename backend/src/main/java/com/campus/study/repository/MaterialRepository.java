@@ -14,6 +14,9 @@ import java.util.List;
 @Repository
 public interface MaterialRepository extends JpaRepository<Material, Long> {
 
+    @Query("SELECT m.gradeId, m.subjectId, m.categoryId, COUNT(m) FROM Material m WHERE m.status = 1 GROUP BY m.gradeId, m.subjectId, m.categoryId")
+    List<Object[]> countGroupByGradeSubjectCategory();
+
     Page<Material> findByStatus(Integer status, Pageable pageable);
 
     Page<Material> findByTitleContainingAndStatus(String title, Integer status, Pageable pageable);

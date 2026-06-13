@@ -25,6 +25,10 @@
               <el-icon><User /></el-icon>
               <span>个人中心</span>
             </el-menu-item>
+            <el-menu-item index="/gap-analysis">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>缺口统计</span>
+            </el-menu-item>
           </el-menu>
         </div>
       </el-header>
@@ -60,7 +64,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Reading, House, Upload, User, ShoppingCart } from '@element-plus/icons-vue'
+import { Reading, House, Upload, User, ShoppingCart, DataAnalysis } from '@element-plus/icons-vue'
 import { useAppStore } from '@/store'
 import ReviewBasket from '@/components/ReviewBasket.vue'
 

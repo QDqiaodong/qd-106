@@ -47,6 +47,12 @@ file:
     path: /app/uploads
   chunk:
     path: /app/uploads/chunks
+  inspection:
+    incremental:
+      cron: "0 0 */4 * * ?"
+      limit: 100
+    full:
+      cron: "0 30 2 * * ?"
 
 view:
   count:

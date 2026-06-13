@@ -196,3 +196,29 @@ CREATE TABLE IF NOT EXISTS `correction` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='勘误表';
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+CREATE TABLE IF NOT EXISTS `file_inspection_record` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `material_title` VARCHAR(255) DEFAULT '' COMMENT '资料标题（快照）',
+  `file_url` VARCHAR(255) DEFAULT '' COMMENT '文件地址（快照）',
+  `exception_type` TINYINT NOT NULL COMMENT '异常类型 1文件缺失 2文件为空 3文件大小不匹配 4文件哈希不匹配 5文件无法读取 6无法预览 7文件地址为空 8扩展名无效 9资料已下架',
+  `exception_detail` TEXT COMMENT '异常详细说明',
+  `expected_file_size` BIGINT DEFAULT NULL COMMENT '期望的文件大小（数据库记录）',
+  `actual_file_size` BIGINT DEFAULT NULL COMMENT '实际文件大小',
+  `expected_file_hash` VARCHAR(64) DEFAULT '' COMMENT '期望的文件哈希（数据库记录）',
+  `actual_file_hash` VARCHAR(64) DEFAULT '' COMMENT '实际文件哈希',
+  `handle_status` TINYINT NOT NULL DEFAULT 0 COMMENT '处理状态 0待处理 1处理中 2已解决 3已忽略 4已删除记录',
+  `handler_id` INT UNSIGNED DEFAULT NULL COMMENT '处理人ID',
+  `handle_remark` VARCHAR(500) DEFAULT '' COMMENT '处理备注',
+  `handled_at` DATETIME DEFAULT NULL COMMENT '处理时间',
+  `inspection_batch` VARCHAR(64) DEFAULT '' COMMENT '巡检批次号',
+  `discovered_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发现时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_material` (`material_id`),
+  KEY `idx_exception_type` (`exception_type`),
+  KEY `idx_handle_status` (`handle_status`),
+  KEY `idx_discovered_at` (`discovered_at`),
+  KEY `idx_batch` (`inspection_batch`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件巡检台账表';

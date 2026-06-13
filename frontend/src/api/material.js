@@ -365,3 +365,33 @@ export function getMaterialThumbnails(id, limit = 5) {
     params: { limit }
   })
 }
+
+export function getKeywordTrending(subjectId, limit = 20) {
+  return request({
+    url: '/keyword-index/trending',
+    method: 'get',
+    params: { subjectId: subjectId || undefined, limit }
+  })
+}
+
+export function getKeywordRecent(subjectId, days = 7, limit = 20) {
+  return request({
+    url: '/keyword-index/recent',
+    method: 'get',
+    params: { subjectId: subjectId || undefined, days, limit }
+  })
+}
+
+export function getKeywordSubjectOverview() {
+  return request({
+    url: '/keyword-index/subject-overview',
+    method: 'get'
+  })
+}
+
+export function rebuildKeywordIndex() {
+  return request({
+    url: '/keyword-index/rebuild',
+    method: 'post'
+  })
+}

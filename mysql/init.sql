@@ -222,3 +222,17 @@ CREATE TABLE IF NOT EXISTS `file_inspection_record` (
   KEY `idx_discovered_at` (`discovered_at`),
   KEY `idx_batch` (`inspection_batch`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件巡检台账表';
+
+CREATE TABLE IF NOT EXISTS `keyword_frequency` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `word` VARCHAR(50) NOT NULL COMMENT '关键词',
+  `subject_id` INT UNSIGNED DEFAULT 0 COMMENT '学科ID，0表示全局',
+  `frequency` INT DEFAULT 1 COMMENT '词频',
+  `last_seen_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '最后出现时间',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_word_subject` (`word`, `subject_id`),
+  KEY `idx_subject_frequency` (`subject_id`, `frequency` DESC),
+  KEY `idx_last_seen` (`last_seen_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识点词频索引表';

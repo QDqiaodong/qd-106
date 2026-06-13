@@ -67,6 +67,9 @@ public class MaterialService {
     @Resource
     private FileUtil fileUtil;
 
+    @Resource
+    private KeywordFrequencyService keywordFrequencyService;
+
     @Value("${file.upload.path:/app/uploads}")
     private String uploadPath;
 
@@ -405,6 +408,7 @@ public class MaterialService {
         Material saved = materialRepository.save(material);
         clearAllHotCaches();
         clearSearchCache();
+        keywordFrequencyService.indexMaterial(saved);
         return saved;
     }
 

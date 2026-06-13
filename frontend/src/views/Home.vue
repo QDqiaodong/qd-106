@@ -374,6 +374,50 @@
             </div>
           </div>
         </el-card>
+
+        <el-card class="keyword-card">
+          <template #header>
+            <div class="card-header-title">
+              <el-icon color="#409EFF"><Collection /></el-icon>
+              <span>知识点探索</span>
+            </div>
+          </template>
+          <div class="keyword-subject-tabs">
+            <el-tag
+              :type="keywordSubjectId === null ? 'primary' : 'info'"
+              class="keyword-subject-tag"
+              @click="switchKeywordSubject(null)"
+            >
+              全部
+            </el-tag>
+            <el-tag
+              v-for="subject in subjects"
+              :key="subject.id"
+              :type="keywordSubjectId === subject.id ? 'primary' : 'info'"
+              class="keyword-subject-tag"
+              @click="switchKeywordSubject(subject.id)"
+            >
+              {{ subject.name }}
+            </el-tag>
+          </div>
+          <div class="keyword-cloud">
+            <el-tag
+              v-for="(kw, idx) in trendingKeywords"
+              :key="kw.word"
+              :type="getKeywordTagType(idx)"
+              :size="getKeywordTagSize(kw.frequency)"
+              class="keyword-tag"
+              effect="plain"
+              @click="searchByKeyword(kw.word)"
+            >
+              {{ kw.word }}
+              <span class="keyword-freq">{{ kw.frequency }}</span>
+            </el-tag>
+            <div v-if="trendingKeywords.length === 0" class="keyword-empty">
+              <el-empty description="暂无词频数据" :image-size="50" />
+            </div>
+          </div>
+        </el-card>
       </div>
     </div>
 
@@ -388,9 +432,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus, Picture } from '@element-plus/icons-vue'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus, Picture, Collection } from '@element-plus/icons-vue'
 import MaterialPreview from '@/components/MaterialPreview.vue'
-import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot } from '@/api/material'
+import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot, getKeywordTrending, rebuildKeywordIndex } from '@/api/material'
 import { useAppStore } from '@/store'
 
 const router = useRouter()
@@ -420,6 +464,9 @@ const saveDialogVisible = ref(false)
 const snapshotName = ref('')
 const previewVisible = ref(false)
 const previewMaterialId = ref(null)
+
+const trendingKeywords = ref([])
+const keywordSubjectId = ref(null)
 
 const materialList = computed(() => rawMaterialList.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
 
@@ -679,6 +726,41 @@ const getSnapshotTags = (snapshot) => {
   return tags
 }
 
+const loadTrendingKeywords = async () => {
+  try {
+    const res = await getKeywordTrending(keywordSubjectId.value, 20)
+    trendingKeywords.value = res.data || []
+  } catch (e) {
+    if (e.response?.status === 404 || e.response?.data?.message?.includes('Table')) {
+      trendingKeywords.value = []
+    } else {
+      console.error('加载词频数据失败', e)
+    }
+  }
+}
+
+const switchKeywordSubject = (subjectId) => {
+  keywordSubjectId.value = subjectId
+  loadTrendingKeywords()
+}
+
+const searchByKeyword = (word) => {
+  searchKeyword.value = word
+  currentPage.value = 1
+  loadMaterials()
+}
+
+const getKeywordTagType = (index) => {
+  const types = ['primary', 'success', 'warning', 'danger', 'info']
+  return types[index % types.length]
+}
+
+const getKeywordTagSize = (frequency) => {
+  if (frequency >= 10) return 'default'
+  if (frequency >= 5) return 'small'
+  return 'small'
+}
+
 onMounted(() => {
   loadCategories()
   loadGrades()
@@ -686,6 +768,7 @@ onMounted(() => {
   loadMaterials()
   loadHotMaterials()
   loadFilterSnapshots()
+  loadTrendingKeywords()
   window.addEventListener('resize', handleResize)
 })
 
@@ -1256,6 +1339,54 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.keyword-card {
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.keyword-subject-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.keyword-subject-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.keyword-subject-tag:hover {
+  transform: translateY(-1px);
+}
+
+.keyword-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.keyword-tag {
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.keyword-tag:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.keyword-freq {
+  font-size: 10px;
+  color: #909399;
+  margin-left: 2px;
+}
+
+.keyword-empty {
+  width: 100%;
+  padding: 10px 0;
 }
 
 @media (max-width: 1200px) {

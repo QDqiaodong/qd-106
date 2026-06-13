@@ -236,3 +236,51 @@ CREATE TABLE IF NOT EXISTS `keyword_frequency` (
   KEY `idx_subject_frequency` (`subject_id`, `frequency` DESC),
   KEY `idx_last_seen` (`last_seen_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='知识点词频索引表';
+
+CREATE TABLE IF NOT EXISTS `topic_folder` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL COMMENT '资料夹名称',
+  `description` TEXT COMMENT '导读说明',
+  `cover` VARCHAR(255) DEFAULT '' COMMENT '封面图',
+  `user_id` INT UNSIGNED DEFAULT 0 COMMENT '创建用户ID',
+  `sort` INT DEFAULT 0 COMMENT '排序',
+  `view_count` INT DEFAULT 0 COMMENT '浏览次数',
+  `status` TINYINT DEFAULT 1 COMMENT '状态 1正常 0下架',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_sort` (`sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='专题资料夹表';
+
+CREATE TABLE IF NOT EXISTS `topic_folder_item` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `folder_id` INT UNSIGNED NOT NULL COMMENT '资料夹ID',
+  `material_id` INT UNSIGNED NOT NULL COMMENT '资料ID',
+  `sort` INT DEFAULT 0 COMMENT '排序',
+  `remark` VARCHAR(500) DEFAULT '' COMMENT '备注/导读',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_folder` (`folder_id`),
+  KEY `idx_material` (`material_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='专题资料夹条目表';
+
+INSERT IGNORE INTO `topic_folder` (`id`, `name`, `description`, `user_id`, `sort`, `view_count`, `status`) VALUES
+(1, '期末复习冲刺', '精选期末复习资料，涵盖各学科重点知识点和典型试题，帮助学生高效备考，冲刺期末好成绩。', 1, 1, 256, 1),
+(2, '竞赛训练专区', '奥数、物理竞赛、英语竞赛等各类竞赛训练资料，适合学有余力的同学拔高提升。', 1, 2, 189, 1),
+(3, '开学预习手册', '新学期开学预习资料汇总，提前了解新课程内容，打好基础，赢在起跑线。', 1, 3, 145, 1),
+(4, '高三一轮复习', '高三第一轮系统复习资料，全面梳理知识点，构建知识体系，为高考打下坚实基础。', 1, 4, 312, 1);
+
+INSERT IGNORE INTO `topic_folder_item` (`folder_id`, `material_id`, `sort`, `remark`) VALUES
+(1, 1, 1, '数学基础知识点梳理，建议先过一遍'),
+(1, 2, 2, '物理期中测试卷，模拟考试用'),
+(1, 3, 3, '英语语法专项，攻克语法难点'),
+(1, 4, 4, '语文古诗文必背篇目'),
+(2, 5, 1, '小学奥数竞赛训练题，适合入门'),
+(3, 6, 1, '高一化学课件，预习新课程'),
+(3, 7, 2, '生物思维导图，快速建立知识框架'),
+(4, 8, 1, '历史二轮复习专题教案'),
+(4, 1, 2, '数学知识点总结配套使用'),
+(4, 4, 3, '语文古诗文巩固复习');

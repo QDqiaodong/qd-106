@@ -25,6 +25,16 @@ const routes = [
     path: '/gap-analysis',
     name: 'GapAnalysis',
     component: () => import('@/views/GapAnalysis.vue')
+  },
+  {
+    path: '/topic-folders',
+    name: 'TopicFolderList',
+    component: () => import('@/views/TopicFolderList.vue')
+  },
+  {
+    path: '/topic-folders/:id',
+    name: 'TopicFolderDetail',
+    component: () => import('@/views/TopicFolderDetail.vue')
   }
 ]
 

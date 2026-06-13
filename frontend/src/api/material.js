@@ -395,3 +395,68 @@ export function rebuildKeywordIndex() {
     method: 'post'
   })
 }
+
+export function getTopicFolderList(params) {
+  return request({
+    url: '/topic-folders',
+    method: 'get',
+    params
+  })
+}
+
+export function getAllTopicFolders() {
+  return request({
+    url: '/topic-folders/all',
+    method: 'get'
+  })
+}
+
+export function getTopicFolderDetail(id) {
+  return request({
+    url: `/topic-folders/${id}`,
+    method: 'get'
+  })
+}
+
+export function getTopicFolderItems(id) {
+  return request({
+    url: `/topic-folders/${id}/items`,
+    method: 'get'
+  })
+}
+
+export function createTopicFolder(data) {
+  const { name, description, cover, items } = data
+  return request({
+    url: '/topic-folders',
+    method: 'post',
+    params: { userId: DEFAULT_USER_ID, name, description, cover },
+    data: { items }
+  })
+}
+
+export function updateTopicFolder(id, data) {
+  const { name, description, cover, items } = data
+  return request({
+    url: `/topic-folders/${id}`,
+    method: 'put',
+    params: { userId: DEFAULT_USER_ID, name, description, cover },
+    data: { items }
+  })
+}
+
+export function deleteTopicFolder(id) {
+  return request({
+    url: `/topic-folders/${id}`,
+    method: 'delete',
+    params: { userId: DEFAULT_USER_ID }
+  })
+}
+
+export function getMyTopicFolders(params) {
+  return request({
+    url: '/topic-folders/my',
+    method: 'get',
+    params: { ...params, userId: DEFAULT_USER_ID }
+  })
+}

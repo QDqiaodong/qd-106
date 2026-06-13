@@ -375,6 +375,42 @@
           </div>
         </el-card>
 
+        <el-card class="topic-card">
+          <template #header>
+            <div class="card-header-title">
+              <el-icon color="#67C23A"><FolderOpened /></el-icon>
+              <span>专题资料夹</span>
+            </div>
+          </template>
+          <div class="topic-list">
+            <div
+              v-for="folder in topicFolders"
+              :key="folder.id"
+              class="topic-item"
+              @click="goToTopicFolder(folder.id)"
+            >
+              <div class="topic-icon" :style="getTopicGradient(folder.id)">
+                <el-icon :size="20"><FolderOpened /></el-icon>
+              </div>
+              <div class="topic-info">
+                <div class="topic-name">{{ folder.name }}</div>
+                <div class="topic-meta">
+                  <span>{{ folder.materialCount || 0 }} 份资料</span>
+                  <span>·</span>
+                  <span>{{ folder.viewCount || 0 }} 浏览</span>
+                </div>
+              </div>
+            </div>
+            <div v-if="topicFolders.length === 0" class="topic-empty">
+              <el-empty description="暂无专题" :image-size="50" />
+            </div>
+            <div class="topic-more" @click="goToTopicList">
+              查看全部专题
+              <el-icon><ArrowRight /></el-icon>
+            </div>
+          </div>
+        </el-card>
+
         <el-card class="keyword-card">
           <template #header>
             <div class="card-header-title">
@@ -432,9 +468,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus, Picture, Collection } from '@element-plus/icons-vue'
+import { Search, Document, View, Download, Histogram, Grid, List, Star, StarFilled, ShoppingCart, ShoppingCartFull, CollectionTag, Delete, Plus, Picture, Collection, FolderOpened, ArrowRight } from '@element-plus/icons-vue'
 import MaterialPreview from '@/components/MaterialPreview.vue'
-import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot, getKeywordTrending, rebuildKeywordIndex } from '@/api/material'
+import { getMaterialList, getCategoryList, getGradeList, getSubjectList, getHotMaterials, getFilterSnapshots, createFilterSnapshot, deleteFilterSnapshot, getKeywordTrending, rebuildKeywordIndex, getAllTopicFolders } from '@/api/material'
 import { useAppStore } from '@/store'
 
 const router = useRouter()
@@ -467,6 +503,14 @@ const previewMaterialId = ref(null)
 
 const trendingKeywords = ref([])
 const keywordSubjectId = ref(null)
+
+const topicFolders = ref([])
+const topicGradientColors = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)'
+]
 
 const materialList = computed(() => rawMaterialList.value.filter(m => m.status === 1).map(item => appStore.getEnrichedMaterial(item)))
 
@@ -761,6 +805,28 @@ const getKeywordTagSize = (frequency) => {
   return 'small'
 }
 
+const getTopicGradient = (id) => {
+  const index = (Number(id) - 1) % topicGradientColors.length
+  return { background: topicGradientColors[index], color: '#fff' }
+}
+
+const loadTopicFolders = async () => {
+  try {
+    const res = await getAllTopicFolders()
+    topicFolders.value = (res.data || []).slice(0, 4)
+  } catch (e) {
+    console.error('加载专题资料夹失败', e)
+  }
+}
+
+const goToTopicFolder = (id) => {
+  router.push(`/topic-folders/${id}`)
+}
+
+const goToTopicList = () => {
+  router.push('/topic-folders')
+}
+
 onMounted(() => {
   loadCategories()
   loadGrades()
@@ -769,6 +835,7 @@ onMounted(() => {
   loadHotMaterials()
   loadFilterSnapshots()
   loadTrendingKeywords()
+  loadTopicFolders()
   window.addEventListener('resize', handleResize)
 })
 
@@ -1339,6 +1406,90 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.topic-card {
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.topic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topic-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.topic-item:hover {
+  background: #f5f7fa;
+}
+
+.topic-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.topic-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.topic-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topic-meta {
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  gap: 6px;
+}
+
+.topic-empty {
+  padding: 20px 0;
+}
+
+.topic-empty :deep(.el-empty__description) {
+  font-size: 12px;
+}
+
+.topic-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: #409eff;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.topic-more:hover {
+  color: #66b1ff;
 }
 
 .keyword-card {

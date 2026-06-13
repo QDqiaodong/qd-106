@@ -5,7 +5,8 @@ import {
   uploadChunk,
   getChunkStatus,
   mergeChunks,
-  cancelChunkUpload
+  cancelChunkUpload,
+  checkChunkDuplicate
 } from '@/api/material'
 
 const CHUNK_SIZE = 5 * 1024 * 1024
@@ -16,6 +17,7 @@ export function useChunkUpload() {
   const file = ref(null)
   const fileName = ref('')
   const fileSize = ref(0)
+  const fileMd5 = ref('')
   const totalChunks = ref(0)
   const chunkSize = ref(CHUNK_SIZE)
   const status = ref('idle')
@@ -24,6 +26,8 @@ export function useChunkUpload() {
   const remainingTime = ref(0)
   const error = ref(null)
   const mergedData = ref(null)
+  const duplicateCheckResult = ref(null)
+  const forceUpload = ref(false)
 
   const chunks = reactive([])
   const failedChunks = ref([])
@@ -64,6 +68,34 @@ export function useChunkUpload() {
     const hours = Math.floor(seconds / 3600)
     const mins = Math.floor((seconds % 3600) / 60)
     return `${hours} 小时 ${mins} 分`
+  }
+
+  const calculateFileHash = async (fileObj) => {
+    try {
+      const arrayBuffer = await fileObj.arrayBuffer()
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+      fileMd5.value = hashHex
+      return hashHex
+    } catch (e) {
+      console.warn('计算文件哈希失败:', e)
+      return ''
+    }
+  }
+
+  const checkDuplicate = async (title, userId) => {
+    if (!uploadId.value || !title) return null
+    try {
+      const res = await checkChunkDuplicate(uploadId.value, title, userId)
+      if (res.code === 200 && res.data) {
+        duplicateCheckResult.value = res.data
+        return res.data
+      }
+    } catch (e) {
+      console.error('重复检测失败:', e)
+    }
+    return null
   }
 
   const createChunks = (fileObj) => {
@@ -224,6 +256,8 @@ export function useChunkUpload() {
     error.value = null
     isPaused = false
     mergedData.value = null
+    duplicateCheckResult.value = null
+    forceUpload.value = false
 
     const chunksList = createChunks(fileObj)
     chunks.splice(0, chunks.length, ...chunksList)
@@ -232,7 +266,8 @@ export function useChunkUpload() {
     failedChunks.value = []
 
     try {
-      const initRes = await initChunkUpload(fileObj.name, fileObj.size, CHUNK_SIZE)
+      const hash = await calculateFileHash(fileObj)
+      const initRes = await initChunkUpload(fileObj.name, fileObj.size, CHUNK_SIZE, hash)
       if (initRes.code !== 200) {
         throw new Error(initRes.message || '初始化失败')
       }
@@ -265,8 +300,11 @@ export function useChunkUpload() {
       speed.value = 0
       remainingTime.value = 0
 
-      const mergeRes = await mergeChunks(uploadId.value, formData)
+      const mergeRes = await mergeChunks(uploadId.value, formData, forceUpload.value)
       if (mergeRes.code !== 200) {
+        if (mergeRes.code === 409) {
+          throw new Error(mergeRes.message || '检测到疑似重复资料')
+        }
         throw new Error(mergeRes.message || '合并失败')
       }
 
@@ -320,8 +358,11 @@ export function useChunkUpload() {
       speed.value = 0
       remainingTime.value = 0
 
-      const mergeRes = await mergeChunks(uploadId.value, formData)
+      const mergeRes = await mergeChunks(uploadId.value, formData, forceUpload.value)
       if (mergeRes.code !== 200) {
+        if (mergeRes.code === 409) {
+          throw new Error(mergeRes.message || '检测到疑似重复资料')
+        }
         throw new Error(mergeRes.message || '合并失败')
       }
 
@@ -399,6 +440,7 @@ export function useChunkUpload() {
     file.value = null
     fileName.value = ''
     fileSize.value = 0
+    fileMd5.value = ''
     totalChunks.value = 0
     chunkSize.value = CHUNK_SIZE
     status.value = 'idle'
@@ -407,6 +449,8 @@ export function useChunkUpload() {
     remainingTime.value = 0
     error.value = null
     mergedData.value = null
+    duplicateCheckResult.value = null
+    forceUpload.value = false
     chunks.splice(0, chunks.length)
     failedChunks.value = []
     uploadingChunkIndices.value.clear()
@@ -421,6 +465,7 @@ export function useChunkUpload() {
     file,
     fileName,
     fileSize,
+    fileMd5,
     totalChunks,
     chunkSize,
     status,
@@ -433,8 +478,12 @@ export function useChunkUpload() {
     failedChunks,
     error,
     mergedData,
+    duplicateCheckResult,
+    forceUpload,
     formatFileSize,
     formatTime,
+    calculateFileHash,
+    checkDuplicate,
     startUpload,
     pauseUpload,
     resumeUpload,

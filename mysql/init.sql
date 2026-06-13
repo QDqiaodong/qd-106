@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS `material` (
   `subject_id` INT UNSIGNED DEFAULT 0 COMMENT '学科ID',
   `file_url` VARCHAR(255) DEFAULT '' COMMENT '文件地址',
   `file_size` BIGINT DEFAULT 0 COMMENT '文件大小',
+  `file_hash` VARCHAR(64) DEFAULT '' COMMENT '文件哈希指纹',
   `total_pages` INT DEFAULT 0 COMMENT '总页数',
   `download_count` INT DEFAULT 0 COMMENT '下载次数',
   `view_count` INT DEFAULT 0 COMMENT '浏览次数',

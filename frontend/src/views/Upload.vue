@@ -151,6 +151,83 @@
         </template>
       </el-dialog>
 
+      <el-dialog
+        v-model="showDuplicateDialog"
+        title="疑似重复资料提醒"
+        width="600px"
+        :close-on-click-modal="false"
+        class="duplicate-dialog"
+      >
+        <div class="duplicate-warning">
+          <el-alert
+            :title="duplicateCheckResult?.warningMessage || '检测到库内存在相似资料'"
+            :type="duplicateCheckResult?.matchType === 'exact' ? 'error' : 'warning'"
+            :closable="false"
+            show-icon
+          />
+        </div>
+
+        <div class="duplicate-info" v-if="duplicateCheckResult?.matchedMaterials?.length > 0">
+          <h4 class="section-title">
+            <el-icon><Document /></el-icon>
+            <span>相似资料列表（共 {{ duplicateCheckResult.matchedMaterials.length }} 条）</span>
+          </h4>
+          <div class="matched-list">
+            <div
+              v-for="(item, index) in duplicateCheckResult.matchedMaterials"
+              :key="index"
+              class="matched-item"
+            >
+              <div class="item-header">
+                <span class="item-title">{{ item.title }}</span>
+                <el-tag
+                  :type="item.similarity >= 0.99 ? 'danger' : item.similarity >= 0.9 ? 'warning' : 'info'"
+                  size="small"
+                >
+                  相似度 {{ (item.similarity * 100).toFixed(0) }}%
+                </el-tag>
+              </div>
+              <div class="item-meta">
+                <el-tag size="small" type="info">
+                  {{ formatFileSize(item.fileSize) }}
+                </el-tag>
+                <span class="upload-time">
+                  <el-icon><Clock /></el-icon>
+                  {{ item.createdAt }}
+                </span>
+              </div>
+              <div class="item-reason">
+                <el-icon><InfoFilled /></el-icon>
+                <span>{{ item.matchReason }}</span>
+              </div>
+              <div class="item-actions">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="viewMaterial(item.id)"
+                >
+                  <el-icon><View /></el-icon>
+                  查看详情
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <template #footer>
+          <div class="dialog-footer">
+            <el-button @click="handleCancelUpload">
+              <el-icon><Close /></el-icon>
+              取消上传
+            </el-button>
+            <el-button type="primary" @click="handleForceUpload">
+              <el-icon><Upload /></el-icon>
+              确认上传（仍要上传）
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
+
       <div v-if="!showProgress" class="upload-form-section">
         <el-form
           ref="formRef"
@@ -318,9 +395,12 @@ import {
   Document,
   CircleCheck,
   CircleClose,
-  WarningFilled
+  WarningFilled,
+  Clock,
+  InfoFilled,
+  Close
 } from '@element-plus/icons-vue'
-import { getCategoryList, getGradeList, getSubjectList, getValidationRules, DEFAULT_USER_ID } from '@/api/material'
+import { getCategoryList, getGradeList, getSubjectList, getValidationRules, DEFAULT_USER_ID, checkDuplicate } from '@/api/material'
 import { useChunkUpload } from '@/utils/useChunkUpload'
 import ChunkUploadProgress from '@/components/ChunkUploadProgress.vue'
 
@@ -330,6 +410,9 @@ const uploadRef = ref(null)
 const submitting = ref(false)
 const fileList = ref([])
 const showCheckDialog = ref(false)
+const showDuplicateDialog = ref(false)
+const duplicateCheckResult = ref(null)
+const checkingDuplicate = ref(false)
 
 const form = reactive({
   title: '',
@@ -710,16 +793,55 @@ const handleSubmit = async () => {
   showCheckDialog.value = true
 }
 
+const performDuplicateCheck = async () => {
+  if (!form.file) return null
+
+  checkingDuplicate.value = true
+  try {
+    const checkData = {
+      title: form.title,
+      fileSize: form.file.size,
+      userId: DEFAULT_USER_ID,
+      file: form.file
+    }
+    const res = await checkDuplicate(checkData)
+    if (res.code === 200 && res.data) {
+      return res.data
+    }
+    return null
+  } catch (e) {
+    console.warn('重复检测失败:', e)
+    return null
+  } finally {
+    checkingDuplicate.value = false
+  }
+}
+
 const confirmSubmit = async () => {
   if (checkIssues.value.some(i => i.level === 'error')) {
     ElMessage.warning('请先修复校核中的错误项')
     return
   }
+
+  const checkResult = await performDuplicateCheck()
+  if (checkResult && checkResult.duplicate) {
+    duplicateCheckResult.value = checkResult
+    showCheckDialog.value = false
+    showDuplicateDialog.value = true
+    return
+  }
+
+  proceedWithUpload()
+}
+
+const proceedWithUpload = async () => {
   showCheckDialog.value = false
+  showDuplicateDialog.value = false
   submitting.value = true
   startWatching()
 
   try {
+    chunkUpload.forceUpload.value = true
     const formData = getFormData()
     const success = await chunkUpload.startUpload(form.file, formData)
 
@@ -731,13 +853,48 @@ const confirmSubmit = async () => {
         }
       }, 1500)
     } else if (chunkUpload.status.value === 'error') {
-      ElMessage.error(chunkUpload.error.value || '上传失败')
+      const errMsg = chunkUpload.error.value || '上传失败'
+      if (errMsg.includes('重复') || errMsg.includes('疑似')) {
+        const checkResult = await chunkUpload.checkDuplicate(form.title, DEFAULT_USER_ID)
+        if (checkResult && checkResult.duplicate) {
+          duplicateCheckResult.value = checkResult
+          showDuplicateDialog.value = true
+          return
+        }
+      }
+      ElMessage.error(errMsg)
     }
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '上传失败，请重试')
+    const errMsg = e.response?.data?.message || '上传失败，请重试'
+    if (e.response?.data?.code === 409) {
+      ElMessage.warning(errMsg)
+      const checkResult = await chunkUpload.checkDuplicate(form.title, DEFAULT_USER_ID)
+      if (checkResult && checkResult.duplicate) {
+        duplicateCheckResult.value = checkResult
+        showDuplicateDialog.value = true
+        return
+      }
+    } else {
+      ElMessage.error(errMsg)
+    }
   } finally {
     submitting.value = false
   }
+}
+
+const handleForceUpload = () => {
+  chunkUpload.forceUpload.value = true
+  proceedWithUpload()
+}
+
+const handleCancelUpload = () => {
+  showDuplicateDialog.value = false
+  duplicateCheckResult.value = null
+  chunkUpload.forceUpload.value = false
+}
+
+const viewMaterial = (id) => {
+  window.open(`/detail/${id}`, '_blank')
 }
 
 const handlePause = () => {
@@ -1023,5 +1180,130 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+.duplicate-dialog :deep(.el-dialog__header) {
+  background: linear-gradient(135deg, #f56c6c 0%, #e6a23c 100%);
+  margin: 0;
+  padding: 16px 20px;
+}
+
+.duplicate-dialog :deep(.el-dialog__title) {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.duplicate-dialog :deep(.el-dialog__headerbtn .el-dialog__close) {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.duplicate-dialog :deep(.el-dialog__body) {
+  padding: 24px 24px 12px 24px;
+}
+
+.duplicate-warning {
+  margin-bottom: 16px;
+}
+
+.duplicate-info {
+  margin-top: 16px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.section-title .el-icon {
+  color: #409eff;
+}
+
+.matched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+.matched-item {
+  padding: 12px 16px;
+  background: #fafafa;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.matched-item:hover {
+  background: #f5f7fa;
+  border-color: #dcdfe6;
+}
+
+.item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.upload-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.upload-time .el-icon {
+  font-size: 12px;
+}
+
+.item-reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: #e6a23c;
+  background: #fdf6ec;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.item-reason .el-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.item-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

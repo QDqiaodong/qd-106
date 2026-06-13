@@ -120,6 +120,31 @@ export function getHotMaterials(range) {
   })
 }
 
+export function checkDuplicate(data) {
+  const formData = new FormData()
+  Object.keys(data).forEach(key => {
+    if (data[key] !== undefined && data[key] !== null) {
+      formData.append(key, data[key])
+    }
+  })
+  return request({
+    url: '/materials/check-duplicate',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
+export function checkChunkDuplicate(uploadId, title, userId = DEFAULT_USER_ID) {
+  return request({
+    url: '/materials/chunk/check-duplicate',
+    method: 'post',
+    params: { uploadId, title, userId }
+  })
+}
+
 export function initChunkUpload(fileName, fileSize, chunkSize = 5 * 1024 * 1024, fileMd5 = '') {
   return request({
     url: '/materials/chunk/init',
@@ -153,11 +178,11 @@ export function getChunkStatus(uploadId) {
   })
 }
 
-export function mergeChunks(uploadId, data) {
+export function mergeChunks(uploadId, data, forceUpload = false) {
   return request({
     url: '/materials/chunk/merge',
     method: 'post',
-    params: { uploadId, ...data }
+    params: { uploadId, ...data, forceUpload }
   })
 }
 

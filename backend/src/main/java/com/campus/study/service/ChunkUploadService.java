@@ -2,6 +2,7 @@ package com.campus.study.service;
 
 import com.campus.study.entity.Material;
 import com.campus.study.util.FileUtil;
+import com.campus.study.vo.DuplicateCheckResult;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -31,6 +32,9 @@ public class ChunkUploadService {
 
     @Resource
     private MaterialService materialService;
+
+    @Resource
+    private MaterialFingerprintService materialFingerprintService;
 
     @Value("${file.upload.path:/app/uploads}")
     private String uploadPath;
@@ -152,8 +156,23 @@ public class ChunkUploadService {
     }
 
     @SuppressWarnings("unchecked")
+    public DuplicateCheckResult checkDuplicateBeforeMerge(String uploadId, String title, Long userId) throws IOException {
+        String key = CHUNK_UPLOAD_KEY_PREFIX + uploadId;
+        Map<String, Object> uploadInfo = (Map<String, Object>) redisTemplate.opsForValue().get(key);
+
+        if (uploadInfo == null) {
+            throw new IllegalArgumentException("上传任务不存在或已过期");
+        }
+
+        long fileSize = (long) uploadInfo.get("fileSize");
+        String fileMd5 = (String) uploadInfo.getOrDefault("fileMd5", "");
+
+        return materialFingerprintService.checkDuplicate(title, fileSize, fileMd5, userId);
+    }
+
+    @SuppressWarnings("unchecked")
     public Material mergeChunks(String uploadId, String title, String description,
-                                 Long categoryId, Long gradeId, Long subjectId, Long userId) throws IOException {
+                                 Long categoryId, Long gradeId, Long subjectId, Long userId, Boolean forceUpload) throws IOException {
         String key = CHUNK_UPLOAD_KEY_PREFIX + uploadId;
         Map<String, Object> uploadInfo = (Map<String, Object>) redisTemplate.opsForValue().get(key);
 
@@ -169,17 +188,26 @@ public class ChunkUploadService {
             throw new IllegalArgumentException("上传任务正在合并中");
         }
 
-        uploadInfo.put("status", "merging");
-        redisTemplate.opsForValue().set(key, uploadInfo, UPLOAD_EXPIRE_HOURS, TimeUnit.HOURS);
-
         String fileName = (String) uploadInfo.get("fileName");
         long fileSize = (long) uploadInfo.get("fileSize");
+        String fileMd5 = (String) uploadInfo.getOrDefault("fileMd5", "");
         int totalChunks = (int) uploadInfo.get("totalChunks");
         List<Integer> uploadedChunks = (List<Integer>) uploadInfo.get("uploadedChunks");
 
         if (uploadedChunks.size() != totalChunks) {
             throw new IllegalArgumentException("分片未全部上传完成");
         }
+
+        if (forceUpload == null || !forceUpload) {
+            DuplicateCheckResult duplicateCheck = materialFingerprintService.checkDuplicate(
+                    title, fileSize, fileMd5, userId);
+            if (duplicateCheck.isDuplicate()) {
+                throw new IllegalArgumentException(duplicateCheck.getWarningMessage());
+            }
+        }
+
+        uploadInfo.put("status", "merging");
+        redisTemplate.opsForValue().set(key, uploadInfo, UPLOAD_EXPIRE_HOURS, TimeUnit.HOURS);
 
         String extension = fileUtil.getFileExtension(fileName);
         String newFilename = UUID.randomUUID().toString() + "." + extension;
@@ -215,6 +243,8 @@ public class ChunkUploadService {
         material.setSubjectId(subjectId != null ? subjectId : 0L);
         material.setFileUrl("/uploads/materials/" + newFilename);
         material.setFileSize(fileSize);
+
+        materialFingerprintService.saveMaterialHash(material, mergedFile);
 
         Material saved = materialService.uploadMaterial(material, userId);
 

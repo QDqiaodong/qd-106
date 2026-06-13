@@ -60,4 +60,13 @@ public interface MaterialRepository extends JpaRepository<Material, Long> {
     @Modifying
     @Query("UPDATE Material m SET m.viewCount = m.viewCount + :increment WHERE m.id = :id")
     int updateViewCount(@Param("id") Long id, @Param("increment") int increment);
+
+    List<Material> findByFileHashAndStatus(String fileHash, Integer status);
+
+    List<Material> findByFileSizeBetweenAndStatus(Long minSize, Long maxSize, Integer status);
+
+    List<Material> findByTitleContainingAndStatus(String title, Integer status);
+
+    @Query("SELECT m FROM Material m WHERE m.status = 1 AND m.fileHash IS NOT NULL AND m.fileHash <> ''")
+    List<Material> findAllWithFileHash();
 }

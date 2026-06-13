@@ -5,10 +5,12 @@ import com.campus.study.entity.Material;
 import com.campus.study.service.CategoryValidationService;
 import com.campus.study.service.ChunkUploadService;
 import com.campus.study.service.FavoriteService;
+import com.campus.study.service.MaterialFingerprintService;
 import com.campus.study.service.MaterialService;
 import com.campus.study.service.ReadingProgressService;
 import com.campus.study.util.FileUtil;
 import com.campus.study.util.IpUtil;
+import com.campus.study.vo.DuplicateCheckResult;
 import com.campus.study.vo.MaterialThumbnailVO;
 import com.campus.study.vo.PreviewStatusVO;
 import jakarta.annotation.Resource;
@@ -51,6 +53,9 @@ public class MaterialController {
 
     @Resource
     private CategoryValidationService categoryValidationService;
+
+    @Resource
+    private MaterialFingerprintService materialFingerprintService;
 
     @Value("${file.upload.path:/app/uploads}")
     private String uploadPath;
@@ -116,6 +121,26 @@ public class MaterialController {
         return Result.success(material);
     }
 
+    @PostMapping("/check-duplicate")
+    public Result<DuplicateCheckResult> checkDuplicate(
+            @RequestParam String title,
+            @RequestParam(required = false) Long fileSize,
+            @RequestParam(required = false) String fileMd5,
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) MultipartFile file) {
+        try {
+            DuplicateCheckResult result;
+            if (file != null && !file.isEmpty()) {
+                result = materialFingerprintService.checkDuplicate(title, file.getSize(), file, userId);
+            } else {
+                result = materialFingerprintService.checkDuplicate(title, fileSize, fileMd5, userId);
+            }
+            return Result.success(result);
+        } catch (IOException e) {
+            return Result.error("重复检测失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping
     public Result<Material> upload(
             @RequestParam String title,
@@ -126,9 +151,19 @@ public class MaterialController {
             @RequestParam(required = false) Integer totalPages,
             @RequestParam Long userId,
             @RequestParam(required = false) MultipartFile cover,
+            @RequestParam(required = false) Boolean forceUpload,
             @RequestParam MultipartFile file) {
         try {
             categoryValidationService.validateUpload(gradeId, subjectId, categoryId, title);
+
+            if (forceUpload == null || !forceUpload) {
+                DuplicateCheckResult duplicateCheck = materialFingerprintService.checkDuplicate(
+                        title, file.getSize(), file, userId);
+                if (duplicateCheck.isDuplicate()) {
+                    return Result.error(409, duplicateCheck.getWarningMessage(), null);
+                }
+            }
+
             Material material = new Material();
             material.setTitle(title);
             material.setDescription(description != null ? description : "");
@@ -145,6 +180,8 @@ public class MaterialController {
             String fileUrl = fileUtil.uploadFile(file, "materials");
             material.setFileUrl(fileUrl);
             material.setFileSize(file.getSize());
+
+            materialFingerprintService.saveMaterialHash(material, file);
 
             Material saved = materialService.uploadMaterial(material, userId);
             return Result.success("上传成功", saved);
@@ -327,6 +364,21 @@ public class MaterialController {
         return Result.success(result);
     }
 
+    @PostMapping("/chunk/check-duplicate")
+    public Result<DuplicateCheckResult> checkChunkDuplicate(
+            @RequestParam String uploadId,
+            @RequestParam String title,
+            @RequestParam Long userId) {
+        try {
+            DuplicateCheckResult result = chunkUploadService.checkDuplicateBeforeMerge(uploadId, title, userId);
+            return Result.success(result);
+        } catch (IllegalArgumentException e) {
+            return Result.error(e.getMessage());
+        } catch (IOException e) {
+            return Result.error("重复检测失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/chunk/merge")
     public Result<Material> mergeChunks(
             @RequestParam String uploadId,
@@ -335,14 +387,15 @@ public class MaterialController {
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Long gradeId,
             @RequestParam(required = false) Long subjectId,
-            @RequestParam Long userId) {
+            @RequestParam Long userId,
+            @RequestParam(required = false) Boolean forceUpload) {
         try {
             categoryValidationService.validateUpload(gradeId, subjectId, categoryId, title);
             Material material = chunkUploadService.mergeChunks(
-                    uploadId, title, description, categoryId, gradeId, subjectId, userId);
+                    uploadId, title, description, categoryId, gradeId, subjectId, userId, forceUpload);
             return Result.success("上传成功", material);
         } catch (IllegalArgumentException e) {
-            return Result.error(e.getMessage());
+            return Result.error(409, e.getMessage(), null);
         } catch (IOException e) {
             return Result.error("文件合并失败: " + e.getMessage());
         }

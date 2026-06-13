@@ -40,6 +40,9 @@ public class Material {
     @Column(name = "file_size")
     private Long fileSize = 0L;
 
+    @Column(name = "file_hash", length = 64)
+    private String fileHash = "";
+
     @Column(name = "total_pages")
     private Integer totalPages = 0;
 

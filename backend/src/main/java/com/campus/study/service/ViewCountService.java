@@ -16,19 +16,26 @@ public class ViewCountService {
 
     private static final Logger log = LoggerFactory.getLogger(ViewCountService.class);
 
-    private static final String VIEW_UNIQUE_KEY_PREFIX = "view:unique:";
     private static final String VIEW_COUNT_KEY_PREFIX = "view:count:";
     private static final String VIEW_DAILY_KEY_PREFIX = "view:daily:";
+    private static final String VIEW_WINDOW_KEY_PREFIX = "view:window:";
     private static final String IP_RATE_LIMIT_KEY_PREFIX = "view:rate:ip:";
     private static final String IP_BLOCK_KEY_PREFIX = "view:block:ip:";
     private static final String ABNORMAL_LOG_KEY_PREFIX = "view:abnormal:";
     private static final String DIRTY_MATERIALS_KEY = "view:dirty:materials";
 
-    private static final long VIEW_UNIQUE_EXPIRE_HOURS = 24;
     private static final long VIEW_DAILY_EXPIRE_DAYS = 180;
     private static final long RATE_LIMIT_WINDOW_SECONDS = 60;
     private static final int RATE_LIMIT_MAX_REQUESTS = 100;
     private static final long IP_BLOCK_DURATION_MINUTES = 30;
+
+    private static final long WINDOW_SHORT_SECONDS = 5 * 60;
+    private static final int WINDOW_SHORT_MAX_VIEWS = 1;
+    private static final long WINDOW_MEDIUM_SECONDS = 60 * 60;
+    private static final int WINDOW_MEDIUM_MAX_VIEWS = 2;
+    private static final long WINDOW_LONG_SECONDS = 24 * 60 * 60;
+    private static final int WINDOW_LONG_MAX_VIEWS = 5;
+    private static final long WINDOW_KEY_EXPIRE_SECONDS = 25 * 60 * 60;
 
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
@@ -46,17 +53,62 @@ public class ViewCountService {
             return false;
         }
 
-        String uniqueKey = generateUniqueKey(materialId, userId, ip, userAgent);
-        String redisKey = VIEW_UNIQUE_KEY_PREFIX + uniqueKey;
+        String visitorFingerprint = generateVisitorFingerprint(userId, ip, userAgent);
+        String windowKey = VIEW_WINDOW_KEY_PREFIX + materialId + ":" + visitorFingerprint;
+        long now = System.currentTimeMillis();
 
-        Boolean isNew = redisTemplate.opsForValue().setIfAbsent(redisKey, 1, VIEW_UNIQUE_EXPIRE_HOURS, TimeUnit.HOURS);
-
-        if (Boolean.TRUE.equals(isNew)) {
-            incrementViewCount(materialId);
-            return true;
+        if (!isAllowedInSlidingWindow(windowKey, now)) {
+            return false;
         }
 
-        return false;
+        recordViewInWindow(windowKey, now);
+        incrementViewCount(materialId);
+        return true;
+    }
+
+    private boolean isAllowedInSlidingWindow(String windowKey, long now) {
+        cleanExpiredEntries(windowKey, now, WINDOW_LONG_SECONDS);
+
+        long shortWindowStart = now - WINDOW_SHORT_SECONDS * 1000;
+        Long shortCount = redisTemplate.opsForZSet().count(windowKey, shortWindowStart, now);
+        if (shortCount != null && shortCount >= WINDOW_SHORT_MAX_VIEWS) {
+            return false;
+        }
+
+        long mediumWindowStart = now - WINDOW_MEDIUM_SECONDS * 1000;
+        Long mediumCount = redisTemplate.opsForZSet().count(windowKey, mediumWindowStart, now);
+        if (mediumCount != null && mediumCount >= WINDOW_MEDIUM_MAX_VIEWS) {
+            return false;
+        }
+
+        long longWindowStart = now - WINDOW_LONG_SECONDS * 1000;
+        Long longCount = redisTemplate.opsForZSet().count(windowKey, longWindowStart, now);
+        if (longCount != null && longCount >= WINDOW_LONG_MAX_VIEWS) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void recordViewInWindow(String windowKey, long now) {
+        String member = String.valueOf(now) + ":" + (long) (Math.random() * 1000000);
+        redisTemplate.opsForZSet().add(windowKey, member, now);
+        redisTemplate.expire(windowKey, WINDOW_KEY_EXPIRE_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private void cleanExpiredEntries(String windowKey, long now, long windowSeconds) {
+        long cutoff = now - windowSeconds * 1000;
+        redisTemplate.opsForZSet().removeRangeByScore(windowKey, 0, cutoff);
+    }
+
+    private String generateVisitorFingerprint(Long userId, String ip, String userAgent) {
+        String raw;
+        if (userId != null && userId > 0) {
+            raw = "user:" + userId + ":" + ip;
+        } else {
+            raw = "guest:" + ip + ":" + (userAgent != null ? userAgent : "");
+        }
+        return md5(raw);
     }
 
     public int getViewCount(Long materialId) {
@@ -142,11 +194,6 @@ public class ViewCountService {
 
         log.warn("Abnormal view detected - type: {}, materialId: {}, userId: {}, ip: {}, reason: {}",
                 type, materialId, userId, ip, reason);
-    }
-
-    private String generateUniqueKey(Long materialId, Long userId, String ip, String userAgent) {
-        String raw = materialId + ":" + (userId != null ? userId : "guest") + ":" + ip + ":" + userAgent;
-        return md5(raw);
     }
 
     private String md5(String input) {
